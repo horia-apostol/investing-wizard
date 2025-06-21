@@ -1,0 +1,54 @@
+﻿@inherits LayoutComponentBase
+
+@using Syncfusion.Blazor.Cards
+
+<div id="header" style="height:70px;text-align: center;color:white;background-color:#2d323e;font-size:1.2rem;line-height:45px; display: flex; align-items: flex-start; justify-content: flex-start; padding-left: 202px;">
+    <img src="images/logo.png" alt="Company Logo" style="height: 250px; margin-top: -100px;">
+</div>
+
+<div class="page">
+    <NavMenu />
+    <main>
+        <AuthorizeView>
+            <Authorized>
+                <BodyLayout />
+                <br />
+            </Authorized>
+        </AuthorizeView>
+        <div class="custom-card">
+            @Body
+        </div>
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+<style>
+    .page {
+        display: flex;
+        height: calc(100vh - 50px);
+        overflow: hidden;
+    }
+
+    main {
+        flex: 1;
+        padding: 1rem;
+        overflow-y: auto;
+        background-color: #f4f4fc;
+        border-radius: 8px;
+        margin: 10px;
+    }
+
+    .custom-card {
+        width: 100%;
+        margin: auto;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        background-color: #f4f4fc;
+    }
+</style>

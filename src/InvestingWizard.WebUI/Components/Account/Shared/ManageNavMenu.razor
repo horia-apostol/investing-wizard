@@ -1,0 +1,85 @@
+﻿@using Microsoft.AspNetCore.Identity
+@using InvestingWizard.Identity.Data.Models
+
+@inject SignInManager<ApplicationUser> SignInManager
+
+<ul class="nav nav-pills flex-column">
+    <li class="nav-item">
+        <NavLink class="nav-link" href="Account/Manage" Match="NavLinkMatch.All">Profile</NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link" href="Account/Manage/Email">Email</NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link" href="Account/Manage/ChangePassword">Password</NavLink>
+    </li>
+    @if (hasExternalLogins)
+    {
+        <li class="nav-item">
+            <NavLink class="nav-link" href="Account/Manage/ExternalLogins">External logins</NavLink>
+        </li>
+    }
+    <li class="nav-item">
+        <NavLink class="nav-link" href="Account/Manage/TwoFactorAuthentication">Two-factor authentication</NavLink>
+    </li>
+    <li class="nav-item">
+        <NavLink class="nav-link" href="Account/Manage/PersonalData">Personal data</NavLink>
+    </li>
+</ul>
+
+<style>
+    .nav-link {
+        color: #2d323e;
+        padding: 10px;
+    }
+
+        .nav-link:hover {
+            color: #1c1f26;
+        }
+
+        .nav-link.active {
+            background-color: #2d323e;
+            color: white;
+        }
+
+            .nav-link.active:hover {
+                background-color: #1c1f26;
+                color: white;
+            }
+
+    .btn-primary {
+        background-color: #2d323e;
+        border-color: #2d323e;
+        color: white;
+        margin-right: 5px;
+    }
+
+    .btn-primary:hover {
+        background-color: #1c1f26;
+        border-color: #1c1f26;
+    }
+
+    .btn-primary:focus,
+    .btn-primary:active,
+    .btn-primary:visited {
+        background-color: #2d323e;
+        border-color: #2d323e;
+        color: white;
+    }
+
+        .btn-primary:focus:hover,
+        .btn-primary:active:hover,
+        .btn-primary:visited:hover {
+            background-color: #1c1f26;
+            border-color: #1c1f26;
+        }
+</style>
+
+@code {
+    private bool hasExternalLogins;
+
+    protected override async Task OnInitializedAsync()
+    {
+        hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
+    }
+}

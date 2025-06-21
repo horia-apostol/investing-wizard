@@ -1,0 +1,246 @@
+﻿@page "/StockNewsBot"
+
+@using InvestingWizard.TradingAssistant.Clients.AlphaVantage
+@using InvestingWizard.TradingAssistant.Clients.OpenAI
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Inputs
+@using System.Text.RegularExpressions
+@using Syncfusion.Blazor.Spinner
+
+@inject OpenAIClient OpenAIClient
+@inject AlphaVantageClient AlphaVantageClient
+
+@rendermode InteractiveServer
+
+<PageTitle>Stock News Bot</PageTitle>
+
+<h1 class="page-title">Stock News Bot</h1>
+
+<div class="container">
+    <div class="chat-card">
+        <div class="chat-container">
+            <div class="chat-messages">
+                @foreach (var message in messages)
+                {
+                    <div class="message @message.Role">
+                        <p>@message.Text</p>
+                    </div>
+                }
+            </div>
+            <div class="input-container">
+                <SfTextBox @bind-Value="@userInput" Placeholder="Enter stock ticker..." CssClass="input-field"></SfTextBox>
+                <SfButton CssClass="send-button" @onclick="SendMessage">Send</SfButton>
+                @if (isLoading)
+                {
+                    <SfSpinner Visible="true"></SfSpinner>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="news-card">
+        <h3>News Links</h3>
+        <div class="news-links">
+            <ul>
+                @foreach (var link in newsLinks)
+                {
+                    <li>
+                        <a href="@link.Url" target="_blank">@link.Title</a>
+                        <hr class="separator">
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+</div>
+
+<style>
+    .page-title {
+        text-align: center;
+    }
+
+    .container {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 20px;
+    }
+
+    .chat-card, .news-card {
+        width: 45%;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        padding: 10px;
+    }
+
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 70vh;
+    }
+
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        margin-bottom: 10px;
+    }
+
+    .input-container {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .input-field {
+        flex: 1;
+    }
+
+    .send-button {
+        background-color: #2d323e;
+        color: white;
+    }
+
+    .message {
+        margin: 5px 0;
+        padding: 10px;
+        border-radius: 5px;
+    }
+
+        .message.user {
+            background-color: #e1f5fe;
+            text-align: right;
+        }
+
+        .message.bot {
+            background-color: #fff9c4;
+        }
+
+    .news-card {
+        display: flex;
+        flex-direction: column;
+        height: 70vh;
+    }
+
+        .news-card h3 {
+            margin-bottom: 10px;
+        }
+
+    .news-links {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .news-card ul {
+        list-style-type: none;
+        padding: 0;
+    }
+
+    .news-card li {
+        margin-bottom: 5px;
+    }
+
+    .news-card a {
+        text-decoration: none;
+        color: #007bff;
+    }
+
+        .news-card a:hover {
+            text-decoration: underline;
+        }
+
+    .separator {
+        border: 0;
+        border-top: 1px solid #ccc;
+        margin: 5px 0;
+    }
+</style>
+
+@code {
+    private string userInput;
+    private bool isLoading = false;
+    private List<ChatMessage> messages = new List<ChatMessage>();
+    private List<NewsLink> newsLinks = new List<NewsLink>();
+
+    protected override void OnInitialized()
+    {
+        messages.Add(new ChatMessage { Role = "bot", Text = "Hello! I'm your stock news assistant powered by ChatGPT. Give me the ticker and I will give you the news." });
+    }
+
+    private async Task SendMessage()
+    {
+        if (!string.IsNullOrEmpty(userInput))
+        {
+            messages.Add(new ChatMessage { Role = "user", Text = userInput });
+            isLoading = true;
+
+            try
+            {
+                string ticker = ExtractTicker(userInput);
+                if (string.IsNullOrEmpty(ticker))
+                {
+                    messages.Add(new ChatMessage { Role = "bot", Text = "Please provide a single valid stock ticker." });
+                }
+                else
+                {
+                    var newsData = await AlphaVantageClient.GetNewsAndSentimentAsync(ticker);
+                    if (newsData == null || newsData.Count == 0)
+                    {
+                        messages.Add(new ChatMessage { Role = "bot", Text = $"No news found for ticker {ticker}." });
+                    }
+                    else
+                    {
+                        newsLinks = newsData.Select(article => new NewsLink
+                            {
+                                Title = article.Title,
+                                Url = article.Url
+                            }).ToList();
+
+                        string newsContent = string.Join("\n\n", newsData.Select(article =>
+                            $"{article.Summary}\n" +
+                            $"Sentiment: {article.TickerSentiment}"
+                        ));
+
+                        string prompt = $"Provide a clear, as close to human as possible summary of the following news articles about {ticker}: {newsContent}. Do not use introductory phrases/enumerations/lists or paragraphs, it has to be cursive !!";
+
+                        string response = await OpenAIClient.GetResponseAsync(prompt);
+                        messages.Add(new ChatMessage { Role = "bot", Text = response });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                messages.Add(new ChatMessage { Role = "bot", Text = $"Error: {ex.Message}" });
+            }
+
+            userInput = string.Empty;
+            isLoading = false;
+        }
+    }
+
+    private string ExtractTicker(string input)
+    {
+        var tickers = Regex.Matches(input, @"\b[A-Z]{1,4}\b(?:\.[A-Z]{2})?")
+                           .Cast<Match>()
+                           .Select(m => m.Value)
+                           .Distinct()
+                           .ToList();
+
+        if (tickers.Count != 1)
+        {
+            return null;
+        }
+
+        return tickers[0].Split('.').First();
+    }
+
+    private class ChatMessage
+    {
+        public string Role { get; set; }
+        public string Text { get; set; }
+    }
+
+    private class NewsLink
+    {
+        public string Title { get; set; }
+        public string Url { get; set; }
+    }
+}

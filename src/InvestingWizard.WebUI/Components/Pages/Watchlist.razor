@@ -1,0 +1,293 @@
+﻿@page "/Watchlist/{WatchlistId}"
+
+@rendermode InteractiveServer
+
+@using InvestingWizard.Application.Features.Companies.Queries.GetAllCompanyCodes
+@using InvestingWizard.Application.Features.Watchlists.Queries.GetWatchlistById
+@using InvestingWizard.Application.Features.LivePrices.Queries.GetLivePriceByCode
+@using InvestingWizard.Shared.Common
+@using InvestingWizard.WebUI.Interfaces
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Inputs
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Cards
+@using Syncfusion.Blazor.DropDowns
+
+@inject IWatchlistDataService WatchlistDataService
+@inject NavigationManager Navigation
+
+<PageTitle>Watchlist</PageTitle>
+
+<div class="page-container">
+    <h3 class="page-title">@watchlist?.Name</h3>
+    <br />
+    <SfCard CssClass="watchlist-card">
+        <CardContent>
+            <div class="add-company-code-container">
+                <SfAutoComplete TValue="string" TItem="string" Placeholder="New Company Code" DataSource="@Tickers" @bind-Value="newCompanyCode" CssClass="add-company-code-input">
+                    <AutoCompleteEvents TItem="string" TValue="string" OnValueSelect="OnTickerSelected"></AutoCompleteEvents>
+                    <AutoCompleteFieldSettings Value="Text"></AutoCompleteFieldSettings>
+                </SfAutoComplete>
+                <SfButton CssClass="add-company-code-button" IconCss="fas fa-plus" @onclick="AddCompanyCode">Add Company Code</SfButton>
+            </div>
+            <SfGrid DataSource="@securityCodes" AllowPaging="true" Height="315" Width="100%" @ref="Grid">
+                <GridEditSettings AllowAdding="true" AllowEditing="true" AllowDeleting="true" Mode="EditMode.Normal"></GridEditSettings>
+                <GridPageSettings PageSizes="true"></GridPageSettings>
+                <GridColumns>
+                    <GridColumn Field="Code" HeaderText="Company Code" Width="200" IsPrimaryKey="true" ValidationRules="@(new ValidationRules{ Required=true })"></GridColumn>
+                    <GridColumn HeaderText="Current Price" Width="200">
+                        <Template>
+                            @{
+                                var code = (SecurityCodeDto)context;
+                                <span style="color:@GetChangeColor(code.CurrentPrice, code.PreviousClose)">
+                                    @($"{code.CurrentPrice:N2}")
+                                    (@GetChangeSign(code.ChangePercent)@(code.ChangePercent.ToString("0.00"))%)
+                                </span>
+                            }
+                        </Template>
+                    </GridColumn>
+                    <GridColumn Width="200" TextAlign="TextAlign.Right">
+                        <Template>
+                            @{
+                                var code = (SecurityCodeDto)context;
+                            }
+                            <SfButton CssClass="edit-button" IconCss="fas fa-link" @onclick="(() => NavigateToCompany(code))"></SfButton>
+                            <SfButton CssClass="delete-button" IconCss="fas fa-trash-alt" @onclick="(() => DeleteCompanyCode(code))"></SfButton>
+                        </Template>
+                    </GridColumn>
+                </GridColumns>
+            </SfGrid>
+        </CardContent>
+    </SfCard>
+</div>
+
+<style>
+    .page-container {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .page-title {
+        color: #2d323e;
+        font-size: 2rem;
+        margin-bottom: 20px;
+    }
+
+    .watchlist-card {
+        width: 80%;
+        margin: auto;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+    }
+
+    .add-company-code-container {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .add-company-code-input {
+        width: 300px;
+        max-width: 80%;
+    }
+
+    .add-company-code-button {
+        background-color: #2d323e;
+        color: white;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .e-primary .e-btn-icon, .e-danger .e-btn-icon, .e-success .e-btn-icon {
+        margin-right: 5px;
+    }
+
+    .edit-button {
+        background-color: #2d323e;
+        color: white;
+        margin-right: 5px;
+    }
+
+    .delete-button {
+        background-color: #ff4d4d;
+        color: white;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string WatchlistId { get; set; }
+    public WatchlistResponseDto watchlist;
+    private string newCompanyCode { get; set; }
+    private List<SecurityCodeDto> securityCodes = new List<SecurityCodeDto>();
+    private List<string> Tickers { get; set; } = new List<string>();
+    private Timer priceUpdateTimer;
+    private SfGrid<SecurityCodeDto> Grid;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWatchlist(WatchlistId);
+        await LoadCompanyCodesAsync();
+        await LoadPricesForSecurityCodes();
+
+        priceUpdateTimer = new Timer(async _ => await UpdatePricesForSecurityCodes(), null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
+    }
+
+    private async Task LoadWatchlist(string watchlistId)
+    {
+        var response = await WatchlistDataService.GetWatchlistByIdAsync(watchlistId);
+        if (response.IsSuccess)
+        {
+            watchlist = response.Value;
+            if (watchlist.SecurityCodes != null)
+            {
+                securityCodes = watchlist.SecurityCodes.Select(code => new SecurityCodeDto { Code = code }).ToList();
+            }
+        }
+        else
+        {
+            Console.WriteLine($"Error loading watchlist: {response.Error}");
+        }
+    }
+
+    private async Task LoadCompanyCodesAsync()
+    {
+        try
+        {
+            var response = await WatchlistDataService.GetAllCompanyCodesAsync();
+            if (response.IsSuccess)
+            {
+                Tickers = response.Value.Codes;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading company codes: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPricesForSecurityCodes()
+    {
+        foreach (var code in securityCodes)
+        {
+            var price = await GetCurrentPriceAsync(code.Code);
+            code.CurrentPrice = price?.Close ?? 0;
+            code.PreviousClose = price?.PreviousClose ?? 0;
+            code.ChangePercent = price != null ? ((price.Close - price.PreviousClose) / price.PreviousClose) * 100 : 0;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task<LivePriceResponseDto> GetCurrentPriceAsync(string companyCode)
+    {
+        var response = await WatchlistDataService.GetLivePriceByCodeAsync(companyCode);
+        return response.Value;
+    }
+
+    private async Task AddCompanyCode()
+    {
+        if (!string.IsNullOrEmpty(newCompanyCode) && watchlist != null)
+        {
+            if (securityCodes.Any(sc => sc.Code == newCompanyCode))
+            {
+                Console.WriteLine($"The code {newCompanyCode} is already in the watchlist.");
+                return;
+            }
+
+            if (!Tickers.Contains(newCompanyCode))
+            {
+                Console.WriteLine($"The code {newCompanyCode} is not a valid company code.");
+                return;
+            }
+
+            var response = await WatchlistDataService.AddSecurityToWatchlistAsync(watchlist.Id.ToString(), newCompanyCode);
+            if (response.IsSuccess)
+            {
+                var price = await GetCurrentPriceAsync(newCompanyCode);
+                securityCodes.Add(new SecurityCodeDto
+                    {
+                        Code = newCompanyCode,
+                        CurrentPrice = price?.Close ?? 0,
+                        PreviousClose = price?.PreviousClose ?? 0,
+                        ChangePercent = price != null ? ((price.Close - price.PreviousClose) / price.PreviousClose) * 100 : 0
+                    });
+                newCompanyCode = string.Empty;
+                await LoadWatchlist(WatchlistId);
+                await LoadPricesForSecurityCodes();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private async Task DeleteCompanyCode(SecurityCodeDto code)
+    {
+        if (code != null && watchlist != null)
+        {
+            var response = await WatchlistDataService.RemoveSecurityFromWatchlistAsync(watchlist.Id.ToString(), code.Code);
+            if (response.IsSuccess)
+            {
+                securityCodes.Remove(code);
+                await LoadWatchlist(WatchlistId);
+                await LoadPricesForSecurityCodes();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private void OnTickerSelected(SelectEventArgs<string> args)
+    {
+        var selectedTicker = args.ItemData;
+        if (!string.IsNullOrEmpty(selectedTicker))
+        {
+            newCompanyCode = selectedTicker;
+        }
+    }
+
+    private void NavigateToCompany(SecurityCodeDto code)
+    {
+        if (!string.IsNullOrEmpty(code.Code))
+        {
+            Navigation.NavigateTo($"/Company/{code.Code}");
+        }
+    }
+
+    private string GetChangeColor(decimal currentPrice, decimal previousClose)
+    {
+        return currentPrice < previousClose ? "red" : "green";
+    }
+
+    private string GetChangeSign(decimal changePercent)
+    {
+        return changePercent >= 0 ? "+" : "";
+    }
+
+    private async Task UpdatePricesForSecurityCodes()
+    {
+        foreach (var code in securityCodes)
+        {
+            var price = await GetCurrentPriceAsync(code.Code);
+            code.CurrentPrice = price?.Close ?? 0;
+            code.PreviousClose = price?.PreviousClose ?? 0;
+            code.ChangePercent = price != null ? ((price.Close - price.PreviousClose) / price.PreviousClose) * 100 : 0;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public class SecurityCodeDto
+    {
+        public string Code { get; set; }
+        public decimal CurrentPrice { get; set; }
+        public decimal PreviousClose { get; set; }
+        public decimal ChangePercent { get; set; }
+    }
+
+    public void Dispose()
+    {
+        priceUpdateTimer?.Dispose();
+    }
+}

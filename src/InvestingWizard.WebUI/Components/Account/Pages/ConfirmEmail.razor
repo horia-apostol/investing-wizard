@@ -1,0 +1,78 @@
+﻿@page "/Account/ConfirmEmail"
+
+@using System.Text
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using InvestingWizard.Identity.Data.Models
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IdentityRedirectManager RedirectManager
+
+@attribute [AllowAnonymous]
+
+<PageTitle>Confirm email</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4 mx-auto">
+        <div class="card shadow-sm p-4">
+            <div class="card-header text-center">
+                <h2>Confirm email</h2>
+            </div>
+            <div class="card-body text-center">
+                <StatusMessage Message="@statusMessage" />
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: none;
+        border-radius: 10px;
+    }
+
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: none;
+        padding: 20px 0;
+    }
+
+    .card-body {
+        padding: 20px 30px;
+    }
+</style>
+
+@code {
+    private string? statusMessage;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? UserId { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Code { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserId is null || Code is null)
+        {
+            RedirectManager.RedirectTo("");
+        }
+
+        var user = await UserManager.FindByIdAsync(UserId);
+        if (user is null)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+            statusMessage = $"Error loading user with ID {UserId}";
+        }
+        else
+        {
+            var code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+            var result = await UserManager.ConfirmEmailAsync(user, code);
+            statusMessage = result.Succeeded ? "Thank you for confirming your email." : "Error confirming your email.";
+        }
+    }
+}

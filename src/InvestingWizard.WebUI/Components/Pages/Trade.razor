@@ -1,0 +1,753 @@
+﻿@page "/Trade/{PortfolioId}"
+
+@using InvestingWizard.Application.Features.Portfolios.Commands.AddTransaction
+@using InvestingWizard.Application.Features.Portfolios.Commands.ApproveSuggestion
+@using InvestingWizard.Application.Features.Portfolios.Commands.CloseTransaction
+@using InvestingWizard.Application.Features.Portfolios.Commands.CloseTransactionPartially
+@using InvestingWizard.Application.Features.Portfolios.Queries.GetTransactionsById
+@using InvestingWizard.Application.Features.Companies.Queries.GetAllCompanyCodes
+@using InvestingWizard.Application.Features.LivePrices.Queries.GetLivePriceByCode
+@using InvestingWizard.Shared.Common
+@using InvestingWizard.TradingAssistant.Models
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Inputs
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Cards
+@using Syncfusion.Blazor.Calendars
+@using Syncfusion.Blazor.DropDowns
+@using Syncfusion.Blazor.Popups
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+@rendermode InteractiveServer
+
+<PageTitle>Trade</PageTitle>
+
+<div class="page-container">
+    <div class="add-transaction-container">
+        <SfAutoComplete TValue="string" TItem="string" Placeholder="Security Code" DataSource="@Tickers" @bind-Value="securityCode" CssClass="add-transaction-input">
+            <AutoCompleteEvents TItem="string" TValue="string" OnValueSelect="OnTickerSelected"></AutoCompleteEvents>
+            <AutoCompleteFieldSettings Value="Text"></AutoCompleteFieldSettings>
+        </SfAutoComplete>
+        <SfTextBox @bind-Value="unitsString" Placeholder="Units" CssClass="add-transaction-input" Type="InputType.Number"></SfTextBox>
+        <SfDatePicker TValue="DateTime?" @bind-Value="date" Placeholder="Date" CssClass="add-transaction-input"></SfDatePicker>
+        <SfCheckBox @bind-Checked="brokerIsResident" Label="Broker is Resident" CssClass="add-transaction-checkbox"></SfCheckBox>
+        <SfButton CssClass="add-transaction-button" IconCss="fas fa-plus" @onclick="AddTransaction">Add Transaction</SfButton>
+    </div>
+
+    <SfGrid DataSource="@transactions" AllowPaging="true" Height="300px" Width="100%">
+        <GridEditSettings AllowAdding="false" AllowEditing="false" AllowDeleting="true" Mode="EditMode.Normal"></GridEditSettings>
+        <GridPageSettings PageSizes="true"></GridPageSettings>
+        <GridColumns>
+            <GridColumn Field="SecurityCode" HeaderText="Investment" Width="150" IsPrimaryKey="true" TextAlign="TextAlign.Center"></GridColumn>
+            <GridColumn Field="Date" HeaderText="Date" Width="150" Format="dd/MM/yyyy" TextAlign="TextAlign.Center"></GridColumn>
+            <GridColumn Field="Units" HeaderText="Units" Width="100" TextAlign="TextAlign.Center">
+                <Template>
+                    @{
+                        var transaction = (TransactionDetailsDto)context;
+                        var highlightClass = HighlightedTransactionIds.Contains(transaction.Id) ? "highlighted" : "";
+                        <span class="@highlightClass">@($"{transaction.Units:N2}")</span>
+                    }
+                </Template>
+            </GridColumn>
+            <GridColumn Field="UnitPrice" HeaderText="Unit Price" Width="150" TextAlign="TextAlign.Center">
+                <Template>
+                    @{
+                        var transaction = (TransactionDetailsDto)context;
+                        var highlightClass = HighlightedTransactionIds.Contains(transaction.Id) ? "highlighted" : "";
+                        <span class="@highlightClass">@($"{transaction.UnitPrice:N2}")</span>
+                    }
+                </Template>
+            </GridColumn>
+            <GridColumn HeaderText="Invested" Width="150" TextAlign="TextAlign.Center">
+                <Template>
+                    @{
+                        var transaction = (TransactionDetailsDto)context;
+                        var highlightClass = HighlightedTransactionIds.Contains(transaction.Id) ? "highlighted" : "";
+                        <span class="@highlightClass">@($"{transaction.Amount:N2} {transaction.TransactionCurrencyCode}")</span>
+                    }
+                </Template>
+            </GridColumn>
+            <GridColumn HeaderText="Current Amount" Width="150" TextAlign="TextAlign.Center">
+                <Template>
+                    @{
+                        var transaction = (TransactionDetailsDto)context;
+                        var currentAmount = transaction.Units * transaction.CurrentPrice;
+                        var highlightClass = HighlightedTransactionIds.Contains(transaction.Id) ? "highlighted" : "";
+                        <span class="@highlightClass">@($"{currentAmount:N2} {transaction.TransactionCurrencyCode}")</span>
+                    }
+                </Template>
+            </GridColumn>
+            <GridColumn HeaderText="Current Price" Width="150" TextAlign="TextAlign.Center">
+                <Template>
+                    @{
+                        var transaction = (TransactionDetailsDto)context;
+                        var highlightClass = HighlightedTransactionIds.Contains(transaction.Id) ? "highlighted" : "";
+                        <span class="@highlightClass" style="color:@GetChangeColor(transaction.CurrentPrice, transaction.PreviousClose)">
+                            @($"{transaction.CurrentPrice:N2}")
+                            (@GetChangeSign(transaction.ChangePercent)@(transaction.ChangePercent.ToString("0.00"))%)
+                        </span>
+                    }
+                </Template>
+            </GridColumn>
+            <GridColumn HeaderText="Profit %" Width="150" TextAlign="TextAlign.Center">
+                <Template>
+                    @{
+                        var transaction = (TransactionDetailsDto)context;
+                        var profitPercent = (transaction.CurrentPrice - transaction.UnitPrice) / transaction.UnitPrice * 100;
+                        var profitColor = profitPercent >= 0 ? "green" : "red";
+                        var highlightClass = HighlightedTransactionIds.Contains(transaction.Id) ? "highlighted" : "";
+                        <span class="@highlightClass" style="color:@profitColor">
+                            @($"{GetChangeSign(profitPercent)}{profitPercent.ToString("0.00")}%")
+                        </span>
+                    }
+                </Template>
+            </GridColumn>
+            <GridColumn Field="BrokerIsResident" HeaderText="Resident Broker" Width="125" TextAlign="TextAlign.Center"></GridColumn>
+            <GridColumn Width="100" TextAlign="TextAlign.Center">
+                <Template>
+                    @{
+                        var transaction = (TransactionDetailsDto)context;
+                    }
+                    <SfButton CssClass="delete-button" IconCss="fas fa-times" @onclick="(() => OpenCloseTransactionDialog(transaction.Id, transaction.Units))"></SfButton>
+                </Template>
+            </GridColumn>
+        </GridColumns>
+    </SfGrid>
+
+    <SfDialog @bind-Visible="@showCloseTransactionDialog" Width="500px" IsModal="true" ShowCloseIcon="true">
+        <DialogTemplates>
+            <Header>
+                <span>Close Transaction?</span>
+            </Header>
+            <Content>
+                <div class="close-partially-container">
+                    <SfNumericTextBox Placeholder="Units to close" Min="0.01m" Max="@(maxUnitsToClose - 0.01m)" Step="0.01m" TValue="decimal?" @bind-Value="unitsToClose"></SfNumericTextBox>
+                    <SfButton CssClass="close-partially-button" OnClick="CloseTransactionPartially">Close Partially</SfButton>
+                </div>
+                <p>Are you sure?</p>
+            </Content>
+            <FooterTemplate>
+                <SfButton CssClass="yes-button" OnClick="CloseTransactionFully">Yes</SfButton>
+                <SfButton CssClass="no-button" OnClick="() => showCloseTransactionDialog = false">No</SfButton>
+            </FooterTemplate>
+        </DialogTemplates>
+    </SfDialog>
+
+    <div class="switch-container">
+        <label>Activate Optimizer</label>
+        <SfSwitch @bind-Checked="isOptimizerActive" OnChange="ToggleOptimizer"></SfSwitch>
+    </div>
+
+    <div class="info-suggestions-container">
+        <SfCard CssClass="info-card">
+            <CardContent>
+                <h4>Information</h4>
+                <ul>
+                    @foreach (var info in information)
+                    {
+                        <li>@info</li>
+                    }
+                </ul>
+            </CardContent>
+        </SfCard>
+
+        <SfCard CssClass="suggestions-card">
+            <CardContent>
+                <h4>Suggestions</h4>
+                <ul>
+                    @foreach (var suggestion in suggestions)
+                    {
+                        <li>
+                            @suggestion
+                            <SfButton CssClass="approve-suggestion-button" OnClick="(() => ApproveSuggestion(suggestion))">Approve</SfButton>
+                        </li>
+                    }
+                </ul>
+            </CardContent>
+        </SfCard>
+    </div>
+</div>
+
+<style>
+    .page-container {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .add-transaction-container {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .add-transaction-input {
+        width: 200px;
+        max-width: 80%;
+    }
+
+    .add-transaction-checkbox {
+        margin-left: 1rem;
+    }
+
+    .add-transaction-button {
+        background-color: #2d323e;
+        color: white;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .grid-container {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .delete-button {
+        background-color: #ff4d4d;
+        color: white;
+    }
+
+    .e-grid .e-headercell, .e-grid .e-rowcell {
+        white-space: nowrap;
+    }
+
+    .e-grid .e-rowcell, .e-grid .e-headercell {
+        padding: 8px 10px;
+    }
+
+    .switch-container {
+        display: flex;
+        align-items: center;
+        margin-top: 20px;
+    }
+
+    .info-suggestions-container {
+        display: flex;
+        justify-content: space-between;
+        width: 90%;
+        margin-top: 20px;
+    }
+
+    .info-card, .suggestions-card {
+        width: 48%;
+        max-height: 400px;
+        overflow-y: auto;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .highlighted {
+        background-color: yellow;
+    }
+
+    .close-partially-container {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .close-partially-button {
+        background-color: #ff4d4d;
+        color: white;
+    }
+
+    .yes-button {
+        background-color: #ff4d4d;
+        color: white;
+    }
+
+    .no-button {
+        background-color: #f0f0f0;
+        color: black;
+    }
+
+    .approve-suggestion-button {
+        background-color: #4caf50;
+        color: white;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string PortfolioId { get; set; }
+    private List<TransactionDetailsDto> transactions = new();
+    private string securityCode = string.Empty;
+    private string unitsString = string.Empty;
+    private decimal units => decimal.TryParse(unitsString, out var result) ? result : 0;
+    private const decimal MaxUnits = 1000000;
+    private DateTime? date = DateTime.Now;
+    private bool brokerIsResident;
+    private List<string> Tickers { get; set; } = new List<string>();
+    private Dictionary<string, LivePriceResponseDto> PricesCache { get; set; } = new();
+    private Timer priceUpdateTimer;
+    private bool isOptimizerActive = false;
+    private List<string> suggestions = new();
+    private List<string> information = new();
+    private HashSet<Guid> HighlightedTransactionIds { get; set; } = new();
+    private bool showCloseTransactionDialog = false;
+    private Guid currentTransactionId;
+    private decimal maxUnitsToClose;
+    private decimal? unitsToClose;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            await LoadTransactions();
+            await LoadCompanyCodesAsync();
+            await LoadPricesForTransactions();
+
+            priceUpdateTimer = new Timer(async _ => await UpdatePricesForTransactions(), null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
+        }
+        else
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private async Task LoadTransactions()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var response = await Http.GetAsync($"https://localhost:7186/api/portfolios/{PortfolioId}/transactions");
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<Result<List<TransactionDetailsDto>>>();
+                    transactions = result?.Value ?? new List<TransactionDetailsDto>();
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"Error loading transactions: {error}");
+                }
+            }
+        }
+    }
+
+    private async Task LoadCompanyCodesAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"https://localhost:7186/api/companies/all-codes");
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<Result<CodesResponseDto>>();
+
+            if (result != null && result.Value != null)
+            {
+                Tickers = result.Value.Codes;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading company codes: {ex.Message}");
+        }
+    }
+
+    private void OnTickerSelected(SelectEventArgs<string> args)
+    {
+        var selectedTicker = args.ItemData;
+        if (!string.IsNullOrEmpty(selectedTicker))
+        {
+            securityCode = selectedTicker;
+        }
+    }
+
+    private async Task LoadPricesForTransactions()
+    {
+        var uniqueCodes = transactions.Select(t => t.SecurityCode).Distinct().ToList();
+
+        PricesCache.Clear();
+
+        foreach (var code in uniqueCodes)
+        {
+            var price = await GetCurrentPriceAsync(code);
+            if (price != null)
+            {
+                PricesCache[code] = price;
+            }
+        }
+
+        foreach (var transaction in transactions)
+        {
+            if (PricesCache.TryGetValue(transaction.SecurityCode, out var price))
+            {
+                transaction.CurrentPrice = price.Close;
+                transaction.PreviousClose = price.PreviousClose;
+                transaction.ChangePercent = ((price.Close - price.PreviousClose) / price.PreviousClose) * 100;
+                transaction.CurrentAmount = transaction.Units * transaction.CurrentPrice;
+            }
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+    private async Task<LivePriceResponseDto> GetCurrentPriceAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/live-prices-cache/{companyCode}");
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<Result<LivePriceResponseDto>>();
+        return result.Value;
+    }
+
+    private async Task AddTransaction()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            if (!string.IsNullOrEmpty(securityCode) && units > 0 && units <= MaxUnits && date.HasValue)
+            {
+                var newTransaction = new AddTransactionCommand(Guid.Parse(PortfolioId), DateOnly.FromDateTime(date.Value), securityCode, units, brokerIsResident);
+                var response = await Http.PostAsJsonAsync($"https://localhost:7186/api/portfolios/open-transaction", newTransaction);
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadTransactions();
+                    await LoadPricesForTransactions();
+                    securityCode = string.Empty;
+                    unitsString = string.Empty;
+                    date = DateTime.Now;
+                    brokerIsResident = false;
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"Error adding transaction: {error}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Units must be between 1 and {MaxUnits}.");
+            }
+        }
+    }
+
+    private void OpenCloseTransactionDialog(Guid transactionId, decimal maxUnits)
+    {
+        currentTransactionId = transactionId;
+        maxUnitsToClose = maxUnits;
+        unitsToClose = null;
+        showCloseTransactionDialog = true;
+    }
+
+    private async Task CloseTransactionPartially()
+    {
+        if (unitsToClose is null || unitsToClose <= 0 || unitsToClose >= maxUnitsToClose)
+        {
+            Console.WriteLine($"Units to close must be between 0.1 and {maxUnitsToClose - 0.1m}");
+            return;
+        }
+
+        var transactionToClose = transactions.FirstOrDefault(t => t.Id == currentTransactionId);
+
+        if (isOptimizerActive && transactionToClose != null)
+        {
+            var optimizationRequest = new GetSuggestionsRequest
+                {
+                    Transactions = transactions.Select(t => new TransactionModel
+                    {
+                        Id = t.Id,
+                        Date = t.Date,
+                        UnitPrice = t.UnitPrice,
+                        Units = t.Units,
+                        Amount = t.Amount,
+                        AmountInUserCurrency = t.AmountInUserCurrency,
+                        TransactionCurrencyCode = t.TransactionCurrencyCode,
+                        UserCurrencyCode = t.UserCurrencyCode,
+                        SecurityCode = t.SecurityCode,
+                        BrokerIsResident = t.BrokerIsResident
+                    }).ToList(),
+                    CurrentPrices = transactions
+                                .GroupBy(t => t.SecurityCode)
+                                .ToDictionary(g => g.Key, g => g.First().CurrentPrice),
+                    TargetTransactionId = currentTransactionId,
+                    UnitsToClose = unitsToClose
+                };
+
+            var optimizationResponse = await Http.PostAsJsonAsync("https://localhost:7186/api/optimization/get-suggestions", optimizationRequest);
+            if (optimizationResponse.IsSuccessStatusCode)
+            {
+                var suggestionsResponse = await optimizationResponse.Content.ReadFromJsonAsync<GetSuggestionsResponse>();
+
+                information = suggestionsResponse?.Information.Select(i => FormatSuggestionMessage(i)).ToList() ?? new List<string>();
+                suggestions = suggestionsResponse?.Suggestions.Select(s => FormatSuggestionMessage(s)).ToList() ?? new List<string>();
+
+                HighlightedTransactionIds = suggestionsResponse?.Suggestions
+                    .Where(s => s.TransactionId.HasValue)
+                    .Select(s => s.TransactionId.Value)
+                    .ToHashSet() ?? new HashSet<Guid>();
+            }
+            else
+            {
+                var error = await optimizationResponse.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error getting optimization suggestions: {error}");
+            }
+        }
+
+        var response = await Http.PostAsJsonAsync($"https://localhost:7186/api/portfolios/close-transaction-partially?portfolioId={PortfolioId}&transactionId={currentTransactionId}&quantity={unitsToClose}", new { });
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadTransactions();
+            await LoadPricesForTransactions();
+            showCloseTransactionDialog = false;
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Error closing transaction partially: {error}");
+        }
+    }
+
+    private async Task CloseTransactionFully()
+    {
+        var transactionToClose = transactions.FirstOrDefault(t => t.Id == currentTransactionId);
+
+        if (isOptimizerActive && transactionToClose != null)
+        {
+            var optimizationRequest = new GetSuggestionsRequest
+                {
+                    Transactions = transactions.Select(t => new TransactionModel
+                    {
+                        Id = t.Id,
+                        Date = t.Date,
+                        UnitPrice = t.UnitPrice,
+                        Units = t.Units,
+                        Amount = t.Amount,
+                        AmountInUserCurrency = t.AmountInUserCurrency,
+                        TransactionCurrencyCode = t.TransactionCurrencyCode,
+                        UserCurrencyCode = t.UserCurrencyCode,
+                        SecurityCode = t.SecurityCode,
+                        BrokerIsResident = t.BrokerIsResident
+                    }).ToList(),
+                    CurrentPrices = transactions
+                                .GroupBy(t => t.SecurityCode)
+                                .ToDictionary(g => g.Key, g => g.First().CurrentPrice),
+                    TargetTransactionId = currentTransactionId,
+                    UnitsToClose = transactionToClose.Units
+                };
+
+            var optimizationResponse = await Http.PostAsJsonAsync("https://localhost:7186/api/optimization/get-suggestions", optimizationRequest);
+            if (optimizationResponse.IsSuccessStatusCode)
+            {
+                var suggestionsResponse = await optimizationResponse.Content.ReadFromJsonAsync<GetSuggestionsResponse>();
+
+                information = suggestionsResponse?.Information.Select(i => FormatSuggestionMessage(i)).ToList() ?? new List<string>();
+                suggestions = suggestionsResponse?.Suggestions.Select(s => FormatSuggestionMessage(s)).ToList() ?? new List<string>();
+
+                HighlightedTransactionIds = suggestionsResponse?.Suggestions
+                    .Where(s => s.TransactionId.HasValue)
+                    .Select(s => s.TransactionId.Value)
+                    .ToHashSet() ?? new HashSet<Guid>();
+            }
+            else
+            {
+                var error = await optimizationResponse.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error getting optimization suggestions: {error}");
+            }
+        }
+
+        var response = await Http.PostAsJsonAsync($"https://localhost:7186/api/portfolios/close-transaction?portfolioId={PortfolioId}&transactionId={currentTransactionId}", new { });
+        if (response.IsSuccessStatusCode)
+        {
+            await LoadTransactions();
+            await LoadPricesForTransactions();
+            showCloseTransactionDialog = false;
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Error closing transaction: {error}");
+        }
+    }
+
+    private async Task ApproveSuggestion(string suggestion)
+    {
+        try
+        {
+            var suggestionParts = suggestion.Split(' ');
+
+            if (suggestionParts.Length >= 4 && suggestionParts[0] == "Close")
+            {
+                var unitsToSell = decimal.Parse(suggestionParts[1]);
+                var securityCode = suggestionParts[4];
+                var transactionId = HighlightedTransactionIds.FirstOrDefault();
+
+                if (transactionId == Guid.Empty)
+                {
+                    Console.WriteLine($"Transaction ID not found for highlighted suggestion: {suggestion}");
+                    return;
+                }
+
+                var transaction = transactions.FirstOrDefault(t => t.Id == transactionId && t.SecurityCode == securityCode);
+
+                if (transaction != null)
+                {
+                    var isPartialClose = unitsToSell != transaction.Units;
+
+                    var command = new ApproveSuggestionCommand(
+                        new Guid(PortfolioId),
+                        transaction.Id,
+                        securityCode,
+                        unitsToSell,
+                        isPartialClose,
+                        transaction.UnitPrice,
+                        transaction.TransactionCurrencyCode,
+                        transaction.UserCurrencyCode,
+                        transaction.AmountInUserCurrency,
+                        transaction.BrokerIsResident
+                    );
+
+                    var response = await Http.PostAsJsonAsync("https://localhost:7186/api/portfolios/approve-suggestion", command);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        suggestions.Remove(suggestion);
+                        HighlightedTransactionIds.Remove(transaction.Id);
+
+                        await LoadTransactions();
+                        await LoadPricesForTransactions();
+                    }
+                    else
+                    {
+                        var error = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine($"Error approving suggestion: {error}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"Transaction not found or not matching criteria for suggestion: {suggestion}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in ApproveSuggestion: {ex.Message}");
+        }
+    }
+
+    private async Task ToggleOptimizer()
+    {
+        isOptimizerActive = !isOptimizerActive;
+
+        if (!isOptimizerActive)
+        {
+            suggestions.Clear();
+            information.Clear();
+            HighlightedTransactionIds.Clear();
+
+            await LoadTransactions();
+            await LoadPricesForTransactions();
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private string FormatSuggestionMessage(SuggestionDto suggestion)
+    {
+        return suggestion.Message.Replace("Info:", "").Replace("Suggestion:", "").Trim();
+    }
+
+    private string GetChangeColor(decimal currentPrice, decimal previousClose)
+    {
+        return currentPrice < previousClose ? "red" : "green";
+    }
+
+    private string GetChangeSign(decimal changePercent)
+    {
+        return changePercent >= 0 ? "+" : "";
+    }
+
+    private async Task UpdatePricesForTransactions()
+    {
+        var uniqueCodes = transactions.Select(t => t.SecurityCode).Distinct().ToList();
+
+        PricesCache.Clear();
+
+        foreach (var code in uniqueCodes)
+        {
+            var price = await GetCurrentPriceAsync(code);
+            if (price != null)
+            {
+                PricesCache[code] = price;
+            }
+        }
+
+        foreach (var transaction in transactions)
+        {
+            if (PricesCache.TryGetValue(transaction.SecurityCode, out var price))
+            {
+                transaction.CurrentPrice = price.Close;
+                transaction.PreviousClose = price.PreviousClose;
+                transaction.ChangePercent = ((price.Close - price.PreviousClose) / price.PreviousClose) * 100;
+                transaction.CurrentAmount = transaction.Units * transaction.CurrentPrice;
+            }
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+    public class TransactionDetailsDto
+    {
+        public Guid Id { get; set; }
+        public DateOnly Date { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal Units { get; set; }
+        public decimal Amount { get; set; }
+        public decimal AmountInUserCurrency { get; set; }
+        public string TransactionCurrencyCode { get; set; }
+        public string UserCurrencyCode { get; set; }
+        public string SecurityCode { get; set; }
+        public bool BrokerIsResident { get; set; }
+        public decimal CurrentPrice { get; set; }
+        public decimal PreviousClose { get; set; }
+        public decimal ChangePercent { get; set; }
+        public decimal CurrentAmount { get; set; }
+    }
+
+    public class SuggestionDto
+    {
+        public string Message { get; set; }
+        public Guid? TransactionId { get; set; }
+    }
+
+    public class GetSuggestionsRequest
+    {
+        public List<TransactionModel> Transactions { get; set; }
+        public Dictionary<string, decimal> CurrentPrices { get; set; }
+        public Guid TargetTransactionId { get; set; }
+        public decimal? UnitsToClose { get; set; }
+    }
+
+    public class GetSuggestionsResponse
+    {
+        public List<SuggestionDto> Information { get; set; }
+        public List<SuggestionDto> Suggestions { get; set; }
+    }
+
+    public void Dispose()
+    {
+        priceUpdateTimer?.Dispose();
+    }
+}

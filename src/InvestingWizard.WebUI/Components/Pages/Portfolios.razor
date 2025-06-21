@@ -1,0 +1,279 @@
+﻿@page "/Portfolios"
+
+@rendermode InteractiveServer
+
+@using InvestingWizard.Application.Features.Portfolios.Commands.AddPortfolio
+@using InvestingWizard.Application.Features.Portfolios.Commands.UpdatePortfolioName
+@using InvestingWizard.Shared.Common
+@using InvestingWizard.Shared.Dtos.RequestDtos
+@using InvestingWizard.WebUI.Interfaces
+@using Microsoft.AspNetCore.Components.Authorization
+@using InvestingWizard.Application.Features.Portfolios.Queries.GetPortfoliosByUserId
+@using InvestingWizard.Application.Features.Portfolios.Queries.GetDividendById
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Inputs
+@using Syncfusion.Blazor.Cards
+@using System.Net.Http.Json
+@using System.Security.Claims
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IPortfolioDataService PortfolioDataService
+
+<PageTitle>Your Portfolios</PageTitle>
+
+<div class="page-container">
+    <h3 class="page-title">My Portfolios</h3>
+    <h4>Total Estimated Dividend: @($"{totalDividend:N2} {userCurrency}")</h4>
+    <br />
+    <SfCard CssClass="portfolio-card">
+        <CardContent>
+            <div class="add-portfolio-container">
+                <SfTextBox @bind-Value="newPortfolioName" Placeholder="New Portfolio Name" CssClass="add-portfolio-input"></SfTextBox>
+                <SfButton CssClass="add-portfolio-button" IconCss="fas fa-plus" @onclick="AddPortfolio">Add Portfolio</SfButton>
+            </div>
+            <SfGrid DataSource="@userPortfolios" @ref="Grid" AllowPaging="true" Height="315" Width="100%">
+                <GridEditSettings AllowAdding="true" AllowEditing="true" AllowDeleting="true" Mode="EditMode.Normal"></GridEditSettings>
+                <GridPageSettings PageSizes="true"></GridPageSettings>
+                <GridColumns>
+                    <GridColumn Field="Name" HeaderText="Name" Width="300" IsPrimaryKey="true" ValidationRules="@(new ValidationRules{ Required=true })" EditType="EditType.DefaultEdit">
+                        <EditTemplate>
+                            @{
+                                var portfolio = (PortfolioIdResponseDto)context;
+                            }
+                            <SfTextBox Value="@portfolio.Name" Placeholder="Name" @onchange="async (e) => await UpdatePortfolioName(portfolio, e.Value.ToString())"></SfTextBox>
+                        </EditTemplate>
+                    </GridColumn>
+                    <GridColumn Width="200" TextAlign="TextAlign.Right">
+                        <Template>
+                            @{
+                                var portfolio = (PortfolioIdResponseDto)context;
+                            }
+                            <SfButton CssClass="edit-button" IconCss="fas fa-edit" @onclick="(() => EditPortfolio(portfolio))">Edit</SfButton>
+                            <SfButton CssClass="delete-button" IconCss="fas fa-trash-alt" @onclick="(() => DeletePortfolio(portfolio))">Delete</SfButton>
+                        </Template>
+                    </GridColumn>
+                </GridColumns>
+            </SfGrid>
+        </CardContent>
+    </SfCard>
+</div>
+
+<style>
+    .page-container {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .page-title {
+        color: #2d323e;
+        font-size: 2rem;
+        margin-bottom: 20px;
+    }
+
+    .portfolio-card {
+        width: 80%;
+        margin: auto;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+    }
+
+    .add-portfolio-container {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .add-portfolio-input {
+        width: 200px;
+        max-width: 80%;
+    }
+
+    .add-portfolio-button {
+        background-color: #2d323e;
+        color: white;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .e-primary .e-btn-icon, .e-danger .e-btn-icon, .e-success .e-btn-icon {
+        margin-right: 5px;
+    }
+
+    .e-grid .e-rowcell, .e-grid .e-headercell {
+        text-align: right;
+    }
+
+        .e-grid .e-rowcell:first-child, .e-grid .e-headercell:first-child {
+            text-align: left;
+        }
+
+    .edit-button {
+        background-color: #2d323e;
+        color: white;
+        margin-right: 5px;
+    }
+
+    .delete-button {
+        background-color: #ff4d4d;
+        color: white;
+    }
+</style>
+
+@code {
+    private List<PortfolioIdResponseDto> userPortfolios { get; set; } = new List<PortfolioIdResponseDto>();
+    private string newPortfolioName { get; set; } = string.Empty;
+    private SfGrid<PortfolioIdResponseDto> Grid;
+    private string userCurrency = "USD";
+    private decimal totalDividend = 0;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPortfolios();
+        await LoadTotalDividend();
+    }
+
+    private async Task LoadPortfolios()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var result = await PortfolioDataService.GetPortfoliosByUserIdAsync(userId);
+                if (result.IsSuccess)
+                {
+                    userPortfolios = result.Value ?? new List<PortfolioIdResponseDto>();
+                }
+                else
+                {
+                    var error = result.Error?.Description ?? "Unknown error";
+                    Console.WriteLine($"Error loading portfolios: {error}");
+                }
+            }
+        }
+    }
+
+    private async Task LoadTotalDividend()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var result = await PortfolioDataService.GetTotalDividendByUserIdAsync(userId);
+
+                if (result.IsSuccess)
+                {
+                    totalDividend = result.Value.Value;
+                    userCurrency = result.Value.CurrencyCode;
+                }
+                else
+                {
+                    var error = result.Error?.Description ?? "Unknown error";
+                    Console.WriteLine($"Error loading total dividend: {error}");
+                }
+            }
+        }
+    }
+
+    private async Task AddPortfolio()
+    {
+        var authState = await authenticationStateTask;
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId) && !string.IsNullOrEmpty(newPortfolioName))
+            {
+                var requestBody = new AddPortfolioCommand(new Guid(userId), newPortfolioName);
+
+                var result = await PortfolioDataService.AddPortfolioAsync(requestBody);
+                if (result.IsSuccess)
+                {
+                    await LoadPortfolios();
+                    await LoadTotalDividend();
+                    newPortfolioName = string.Empty;
+                    StateHasChanged();
+                }
+                else
+                {
+                    var error = result.Error?.Description ?? "Unknown error";
+                    Console.WriteLine($"Error adding portfolio: {error}");
+                }
+            }
+        }
+    }
+
+    private async Task UpdatePortfolioName(PortfolioIdResponseDto portfolio, string newName)
+    {
+        if (!string.IsNullOrEmpty(newName) && portfolio.Name != newName)
+        {
+            var updateRequest = new UpdatePortfolioNameRequestDto { Name = newName };
+            var result = await PortfolioDataService.UpdatePortfolioNameAsync(portfolio.Id.ToString(), updateRequest);
+            if (result.IsSuccess)
+            {
+                var existingPortfolio = userPortfolios.FirstOrDefault(w => w.Id == portfolio.Id);
+                if (existingPortfolio != null)
+                {
+                    existingPortfolio.Name = newName;
+                    StateHasChanged();
+                }
+            }
+            else
+            {
+                var error = result.Error?.Description ?? "Unknown error";
+                Console.WriteLine($"Error updating portfolio name: {error}");
+            }
+        }
+    }
+
+    private async Task DeletePortfolio(PortfolioIdResponseDto portfolio)
+    {
+        var result = await PortfolioDataService.DeletePortfolioAsync(portfolio.Id.ToString());
+        if (result.IsSuccess)
+        {
+            await LoadPortfolios();
+            await LoadTotalDividend();
+            StateHasChanged();
+        }
+        else
+        {
+            var error = result.Error?.Description ?? "Unknown error";
+            Console.WriteLine($"Error deleting portfolio: {error}");
+        }
+    }
+
+    private void EditPortfolio(PortfolioIdResponseDto portfolio)
+    {
+        Navigation.NavigateTo($"/Portfolio/{portfolio.Id}");
+    }
+
+    private void ToolbarClick(Syncfusion.Blazor.Navigations.ClickEventArgs args)
+    {
+        if (args.Item.Id == "Grid_add")
+        {
+            AddPortfolio().GetAwaiter().GetResult();
+        }
+        else if (args.Item.Id == "Grid_excelexport")
+        {
+            this.Grid.ExportToExcelAsync();
+        }
+    }
+}

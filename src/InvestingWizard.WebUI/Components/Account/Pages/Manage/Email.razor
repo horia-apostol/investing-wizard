@@ -1,0 +1,207 @@
+﻿@page "/Account/Manage/Email"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using InvestingWizard.Identity.Data.Models
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject IdentityUserAccessor UserAccessor
+@inject NavigationManager NavigationManager
+
+<PageTitle>Manage email</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm p-4 mt-3">
+            <div class="card-header text-center">
+                <h2>Manage email</h2>
+            </div>
+            <div class="card-body">
+                <StatusMessage Message="@message" />
+                <form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
+                    <AntiforgeryToken />
+                </form>
+                <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" role="alert" />
+                    @if (isEmailConfirmed)
+                    {
+                        <div class="form-floating mb-3 input-group">
+                            <input type="text" value="@email" class="form-control" placeholder="Please enter your email." disabled />
+                            <div class="input-group-append">
+                                <span class="h-100 input-group-text text-success font-weight-bold">✓</span>
+                            </div>
+                            <label for="email" class="form-label">Email</label>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="form-floating mb-3">
+                            <input type="text" value="@email" class="form-control" placeholder="Please enter your email." disabled />
+                            <label for="email" class="form-label">Email</label>
+                            <button type="submit" class="btn btn-link" form="send-verification-form">Send verification email</button>
+                        </div>
+                    }
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.NewEmail" class="form-control" autocomplete="email" aria-required="true" placeholder="Please enter new email." />
+                        <label for="new-email" class="form-label">New email</label>
+                        <ValidationMessage For="() => Input.NewEmail" class="text-danger" />
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Change email</button>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: none;
+        border-radius: 10px;
+    }
+
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: none;
+        padding: 20px 0;
+    }
+
+    .card-body {
+        padding: 20px 30px;
+    }
+
+    .form-floating {
+        position: relative;
+    }
+
+        .form-floating > .form-control {
+            height: calc(2.5rem + 2px);
+            padding: 0.5rem .75rem;
+        }
+
+        .form-floating > label {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            padding: 0.5rem .75rem;
+            pointer-events: none;
+            border: 1px solid transparent;
+            border-radius: .25rem;
+            transition: opacity .1s ease-in-out;
+        }
+
+        .form-floating > .form-control:focus + label,
+        .form-floating > .form-control:not(:placeholder-shown) + label {
+            opacity: .65;
+            transform: scale(.85) translateY(-0.5rem) translateX(0.15rem);
+        }
+
+    .btn-primary {
+        background-color: #2d323e;
+        border-color: #2d323e;
+        color: white;
+        margin-right: 5px;
+    }
+
+        .btn-primary:hover {
+            background-color: #1c1f26;
+            border-color: #1c1f26;
+        }
+
+    .form-control:focus {
+        border-color: #549DB8;
+        box-shadow: 0 0 0 0.2rem rgba(84, 157, 184, 0.25);
+    }
+
+    .form-check-input:focus {
+        border-color: #549DB8;
+        box-shadow: 0 0 0 0.2rem rgba(84, 157, 184, 0.25);
+    }
+
+    a:focus, a:hover {
+        color: #549DB8;
+    }
+
+    a:active {
+        color: #1c1f26;
+    }
+
+    .btn {
+        border-radius: 5px;
+        font-size: 16px;
+    }
+</style>
+
+@code {
+    private string? message;
+    private ApplicationUser user = default!;
+    private string? email;
+    private bool isEmailConfirmed;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "change-email")]
+    private InputModel Input { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await UserAccessor.GetRequiredUserAsync(HttpContext);
+        email = await UserManager.GetEmailAsync(user);
+        isEmailConfirmed = await UserManager.IsEmailConfirmedAsync(user);
+
+        Input.NewEmail ??= email;
+    }
+
+    private async Task OnValidSubmitAsync()
+    {
+        if (Input.NewEmail is null || Input.NewEmail == email)
+        {
+            message = "Your email is unchanged.";
+            return;
+        }
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateChangeEmailTokenAsync(user, Input.NewEmail);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmailChange").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["email"] = Input.NewEmail, ["code"] = code });
+
+        await EmailSender.SendConfirmationLinkAsync(user, Input.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
+
+        message = "Confirmation link to change email sent. Please check your email.";
+    }
+
+    private async Task OnSendEmailVerificationAsync()
+    {
+        if (email is null)
+        {
+            return;
+        }
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
+
+        await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
+
+        message = "Verification email sent. Please check your email.";
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [EmailAddress]
+        [Display(Name = "New email")]
+        public string? NewEmail { get; set; }
+    }
+}

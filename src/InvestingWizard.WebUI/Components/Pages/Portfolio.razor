@@ -1,0 +1,322 @@
+﻿@page "/Portfolio/{PortfolioId}"
+
+@using InvestingWizard.Application.Features.LivePrices.Queries.GetLivePriceByCode
+@using InvestingWizard.Application.Features.Portfolios.Queries.GetPortfolioById
+@using InvestingWizard.Application.Features.Portfolios.Queries.GetPortfolioEntriesById
+@using InvestingWizard.Application.Features.Portfolios.Queries.GetProfitLoss
+@using InvestingWizard.Identity.Data.Models
+@using InvestingWizard.Shared.Common
+@using Microsoft.AspNetCore.Identity
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Inputs
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Cards
+@using Syncfusion.Blazor.Navigations
+@using Syncfusion.Blazor.Charts
+@using System.Net.Http.Json
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+@rendermode InteractiveServer
+
+<PageTitle>Portfolio</PageTitle>
+
+<div class="page-container">
+    <h3 class="page-title">@portfolio?.Name</h3>
+    <h4>Total Estimated Dividend: @($"{totalDividend:N2} {userCurrency}")</h4>
+    <br />
+    <SfTab>
+        <TabItems>
+            <TabItem>
+                <ChildContent>
+                    <TabHeader Text="Portfolio Table"></TabHeader>
+                </ChildContent>
+                <ContentTemplate>
+                    <SfCard CssClass="portfolio-card">
+                        <CardContent>
+                            <div class="add-entry-container">
+                                <SfButton CssClass="trade-button" IconCss="fas fa-exchange-alt" @onclick="NavigateToTrade">Trade</SfButton>
+                            </div>
+                            <SfGrid DataSource="@portfolioEntries" AllowPaging="true" Height="315" Width="100%">
+                                <GridEditSettings AllowAdding="false" AllowEditing="false" AllowDeleting="false"></GridEditSettings>
+                                <GridPageSettings PageSizes="true"></GridPageSettings>
+                                <GridColumns>
+                                    <GridColumn Field="SecurityCode" HeaderText="Security Code" Width="150" TextAlign="TextAlign.Center" IsPrimaryKey="true"></GridColumn>
+                                    <GridColumn Field="TotalUnits" HeaderText="Total Units" Width="100" TextAlign="TextAlign.Center">
+                                        <Template>
+                                            @{
+                                                var portfolioEntry = (PortfolioEntryModel)context;
+                                                <span>@($"{portfolioEntry.TotalUnits:N2}")</span>
+                                            }
+                                        </Template>
+                                    </GridColumn>
+                                    <GridColumn Field="AverageUnitPrice" HeaderText="Avg. Unit Price" Width="100" TextAlign="TextAlign.Center">
+                                        <Template>
+                                            @{
+                                                var portfolioEntry = (PortfolioEntryModel)context;
+                                                <span>@($"{portfolioEntry.AverageUnitPrice:N2}")</span>
+                                            }
+                                        </Template>
+                                    </GridColumn>
+                                    <GridColumn HeaderText="Total Invested" Width="120" TextAlign="TextAlign.Center">
+                                        <Template>
+                                            @{
+                                                var portfolioEntry = (PortfolioEntryModel)context;
+                                                var totalInvested = portfolioEntry.TotalUnits * portfolioEntry.AverageUnitPrice;
+                                                <span>@($"{totalInvested:N2} {portfolioEntry.CurrencyCode}")</span>
+                                            }
+                                        </Template>
+                                    </GridColumn>
+                                    <GridColumn HeaderText="Current Price" Width="100" TextAlign="TextAlign.Center">
+                                        <Template>
+                                            @{
+                                                var portfolioEntry = (PortfolioEntryModel)context;
+                                                <span>@($"{portfolioEntry.CurrentPrice:N2}")</span>
+                                            }
+                                        </Template>
+                                    </GridColumn>
+                                    <GridColumn HeaderText="Total Profit" Width="100" TextAlign="TextAlign.Center">
+                                        <Template>
+                                            @{
+                                                var portfolioEntry = (PortfolioEntryModel)context;
+                                                <span style="color:@GetProfitLossColor(portfolioEntry.ProfitLoss)">
+                                                    @($"{GetChangeSign(portfolioEntry.ProfitLoss)}{portfolioEntry.ProfitLoss:N2}%")
+                                                </span>
+                                            }
+                                        </Template>
+                                    </GridColumn>
+                                    <GridColumn HeaderText="Total Value" Width="120" TextAlign="TextAlign.Center">
+                                        <Template>
+                                            @{
+                                                var portfolioEntry = (PortfolioEntryModel)context;
+                                                <span>@($"{portfolioEntry.TotalValue:N2} {portfolioEntry.CurrencyCode}")</span>
+                                            }
+                                        </Template>
+                                    </GridColumn>
+                                    <GridColumn HeaderText="% of Portfolio" Width="120" TextAlign="TextAlign.Center">
+                                        <Template>
+                                            @{
+                                                var portfolioEntry = (PortfolioEntryModel)context;
+                                                decimal percentageOfPortfolio = 0;
+                                                if (totalPortfolioValue > 0)
+                                                    percentageOfPortfolio = (portfolioEntry.TotalValue / totalPortfolioValue) * 100;
+                                                <span>@($"{percentageOfPortfolio:N2}%")</span>
+                                            }
+                                        </Template>
+                                    </GridColumn>
+                                </GridColumns>
+                            </SfGrid>
+                        </CardContent>
+                    </SfCard>
+                </ContentTemplate>
+            </TabItem>
+            <TabItem>
+                <ChildContent>
+                    <TabHeader Text="Portfolio Distribution"></TabHeader>
+                </ChildContent>
+                <ContentTemplate>
+                    <SfAccumulationChart Title="Portfolio Distribution">
+                        <AccumulationChartSeriesCollection>
+                            <AccumulationChartSeries DataSource="@PortfolioDistributionData" XName="SecurityCode" YName="TotalValue" Name="Security">
+                            </AccumulationChartSeries>
+                        </AccumulationChartSeriesCollection>
+                        <AccumulationChartLegendSettings Visible="true"></AccumulationChartLegendSettings>
+                    </SfAccumulationChart>
+                </ContentTemplate>
+            </TabItem>
+        </TabItems>
+    </SfTab>
+</div>
+
+<style>
+    .page-container {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .page-title {
+        color: #2d323e;
+        font-size: 2rem;
+        margin-bottom: 20px;
+    }
+
+    .portfolio-card {
+        width: 100%;
+        margin: auto;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+    }
+
+    .add-entry-container {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .trade-button {
+        background-color: #2d323e;
+        color: white;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string PortfolioId { get; set; }
+    public PortfolioResponseDto portfolio;
+    private List<PortfolioEntryModel> portfolioEntries = new List<PortfolioEntryModel>();
+    private List<PortfolioEntryModel> PortfolioDistributionData => portfolioEntries;
+    private decimal totalDividend = 0;
+    private decimal dividendPercentage = 0;
+    private decimal totalPortfolioValue = 0;
+    private Timer priceUpdateTimer;
+    public string userCurrency;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPortfolioEntries(PortfolioId);
+        await LoadProfitLossForEntries();
+        await LoadCurrentPricesForEntries();
+        await LoadDividend();
+        CalculateTotalPortfolioValue();
+        CalculateDividendPercentage();
+        priceUpdateTimer = new Timer(async _ => await UpdatePricesForEntries(), null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
+    }
+
+    private async Task LoadPortfolioEntries(string portfolioId)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/portfolios/{portfolioId}/entries");
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<Result<List<PortfolioEntryModel>>>();
+            portfolioEntries = result?.Value ?? new List<PortfolioEntryModel>();
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"Error loading portfolio entries: {error}");
+        }
+    }
+
+    private async Task LoadProfitLossForEntries()
+    {
+        foreach (var entry in portfolioEntries)
+        {
+            var response = await Http.GetAsync($"https://localhost:7186/api/portfolios/{PortfolioId}/profit-loss/{entry.SecurityCode}");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<Result<ProfitLossResultResponseDto>>();
+                if (result != null && result.Value != null)
+                {
+                    entry.ProfitLoss = result.Value.Value;
+                }
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error loading profit/loss for {entry.SecurityCode}: {error}");
+            }
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadCurrentPricesForEntries()
+    {
+        foreach (var entry in portfolioEntries)
+        {
+            var price = await GetCurrentPriceAsync(entry.SecurityCode);
+            if (price != null)
+            {
+                entry.CurrentPrice = price.Close;
+            }
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task<LivePriceResponseDto> GetCurrentPriceAsync(string securityCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/live-prices-cache/{securityCode}");
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<Result<LivePriceResponseDto>>();
+        return result.Value;
+    }
+
+    private async Task UpdatePricesForEntries()
+    {
+        await LoadCurrentPricesForEntries();
+        await LoadProfitLossForEntries();
+    }
+
+    private async Task LoadDividend()
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/portfolios/{PortfolioId}/dividend");
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<Result<DividendResponseDto>>();
+        totalDividend = result.Value.Value;
+        userCurrency = result.Value.CurrencyCode;
+    }
+
+    private void CalculateTotalPortfolioValue()
+    {
+        totalPortfolioValue = portfolioEntries.Sum(entry => entry.TotalValue);
+    }
+
+    private void CalculateDividendPercentage()
+    {
+        if (totalPortfolioValue > 0)
+        {
+            dividendPercentage = (totalDividend / totalPortfolioValue) * 100;
+        }
+    }
+
+    private void NavigateToTrade()
+    {
+        Navigation.NavigateTo($"/Trade/{PortfolioId}");
+    }
+
+    private string GetProfitLossColor(decimal profitLoss)
+    {
+        return profitLoss >= 0 ? "green" : "red";
+    }
+
+    private string GetChangeSign(decimal value)
+    {
+        return value >= 0 ? "+" : "";
+    }
+
+    public class PortfolioResponseDto
+    {
+        public string? Name { get; init; }
+    }
+
+    public class PortfolioEntryModel
+    {
+        public string SecurityCode { get; set; }
+        public decimal TotalUnits { get; set; }
+        public decimal AverageUnitPrice { get; set; }
+        public decimal ProfitLoss { get; set; }
+        public decimal CurrentPrice { get; set; }
+        public string CurrencyCode { get; set; }
+        public decimal TotalValue => TotalUnits * CurrentPrice; 
+    }
+
+    public class DividendResponseDto
+    {
+        public decimal Value { get; set; }
+        public string CurrencyCode { get; set; }
+    }
+
+    public void Dispose()
+    {
+        priceUpdateTimer?.Dispose();
+    }
+}

@@ -1,0 +1,227 @@
+﻿@page "/AdminDashboard"
+
+@using InvestingWizard.WebUI.Interfaces
+@using Syncfusion.Blazor.Cards
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Inputs
+@using Syncfusion.Blazor.Spinner
+
+@inject IAdminDataService AdminDataService
+
+@rendermode InteractiveServer
+
+<PageTitle>Admin Dashboard</PageTitle>
+
+<h3>Admin Dashboard</h3>
+
+<div class="admin-dashboard">
+    <SfCard CssClass="admin-card">
+        <CardContent>
+            <h4>Add or Update Company</h4>
+            <div class="form-group">
+                <SfTextBox @bind-Value="companyCode" Placeholder="Company Code" CssClass="input-field"></SfTextBox>
+                <div class="button-group">
+                    <SfButton CssClass="action-button small-button" @onclick="AddCompany">Add</SfButton>
+                    <SfButton CssClass="action-button small-button" @onclick="UpdateCompany">Update</SfButton>
+                </div>
+                @if (isLoadingCompany)
+                {
+                    <SfSpinner Visible="true"></SfSpinner>
+                }
+                <div class="status-message">@companyMessage</div>
+            </div>
+        </CardContent>
+    </SfCard>
+
+    <SfCard CssClass="admin-card">
+        <CardContent>
+            <h4>Add or Update Exchange</h4>
+            <div class="form-group">
+                <SfTextBox @bind-Value="exchangeCode" Placeholder="Exchange Code" CssClass="input-field"></SfTextBox>
+                <div class="button-group">
+                    <SfButton CssClass="action-button small-button" @onclick="AddExchange">Add</SfButton>
+                    <SfButton CssClass="action-button small-button" @onclick="UpdateExchange">Update</SfButton>
+                </div>
+                @if (isLoadingExchange)
+                {
+                    <SfSpinner Visible="true"></SfSpinner>
+                }
+                <div class="status-message">@exchangeMessage</div>
+            </div>
+        </CardContent>
+    </SfCard>
+
+    <SfCard CssClass="admin-card">
+        <CardContent>
+            <h4>Add Historical Prices</h4>
+            <div class="form-group">
+                <SfTextBox @bind-Value="pricesCode" Placeholder="Security Code" CssClass="input-field"></SfTextBox>
+                <div class="button-group">
+                    <SfButton CssClass="action-button small-button" @onclick="AddPrices">Add Prices</SfButton>
+                </div>
+                @if (isLoadingPrices)
+                {
+                    <SfSpinner Visible="true"></SfSpinner>
+                }
+                <div class="status-message">@pricesMessage</div>
+            </div>
+        </CardContent>
+    </SfCard>
+</div>
+
+<style>
+    .admin-dashboard {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    .admin-card {
+        flex: 1 1 calc(33.333% - 20px);
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        box-sizing: border-box;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .input-field {
+        width: 100%;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 10px;
+    }
+
+    .action-button {
+        background-color: #2d323e;
+        color: white;
+        font-size: 0.875rem;
+    }
+
+    .small-button {
+        padding: 5px 15px;
+        font-size: 0.75rem;
+    }
+
+    .status-message {
+        margin-top: 10px;
+        font-size: 0.875rem;
+        color: #2d323e;
+    }
+</style>
+
+@code {
+    private string companyCode { get; set; } = string.Empty;
+    private string exchangeCode { get; set; } = string.Empty;
+    private string pricesCode { get; set; } = string.Empty;
+
+    private bool isLoadingCompany = false;
+    private bool isLoadingExchange = false;
+    private bool isLoadingPrices = false;
+
+    private string companyMessage = string.Empty;
+    private string exchangeMessage = string.Empty;
+    private string pricesMessage = string.Empty;
+
+    private async Task AddCompany()
+    {
+        isLoadingCompany = true;
+        companyMessage = string.Empty;
+        var result = await AdminDataService.AddCompany(companyCode);
+        if (result.IsSuccess)
+        {
+            companyMessage = $"Successfully added company with code: {companyCode}";
+        }
+        else
+        {
+            companyMessage = $"Error: {result.Error.Description}";
+        }
+        isLoadingCompany = false;
+    }
+
+    private async Task UpdateCompany()
+    {
+        isLoadingCompany = true;
+        companyMessage = string.Empty;
+        var result = await AdminDataService.UpdateCompany(companyCode);
+        if (result.IsSuccess)
+        {
+            companyMessage = $"Successfully updated company with code: {companyCode}";
+        }
+        else
+        {
+            companyMessage = $"Error: {result.Error.Description}";
+        }
+        isLoadingCompany = false;
+    }
+
+    private async Task AddExchange()
+    {
+        isLoadingExchange = true;
+        exchangeMessage = string.Empty;
+        var result = await AdminDataService.AddExchange(exchangeCode);
+        if (result.IsSuccess)
+        {
+            exchangeMessage = $"Successfully added exchange with code: {exchangeCode}";
+        }
+        else
+        {
+            exchangeMessage = $"Error: {result.Error.Description}";
+        }
+        isLoadingExchange = false;
+    }
+
+    private async Task UpdateExchange()
+    {
+        isLoadingExchange = true;
+        exchangeMessage = string.Empty;
+        var result = await AdminDataService.UpdateExchange(exchangeCode);
+        if (result.IsSuccess)
+        {
+            exchangeMessage = $"Successfully updated exchange with code: {exchangeCode}";
+        }
+        else
+        {
+            exchangeMessage = $"Error: {result.Error.Description}";
+        }
+        isLoadingExchange = false;
+    }
+
+    private async Task AddPrices()
+    {
+        isLoadingPrices = true;
+        pricesMessage = string.Empty;
+        var result = await AdminDataService.AddPrices(pricesCode);
+        if (result.IsSuccess)
+        {
+            pricesMessage = $"Successfully added prices for code: {pricesCode}";
+        }
+        else
+        {
+            pricesMessage = $"Error: {result.Error.Description}";
+        }
+        isLoadingPrices = false;
+    }
+
+    public class ApiResponse
+    {
+        public object Value { get; set; }
+        public bool IsSuccess { get; set; }
+        public bool IsFailure { get; set; }
+        public ErrorDetail Error { get; set; }
+    }
+
+    public class ErrorDetail
+    {
+        public string Code { get; set; }
+        public string Description { get; set; }
+    }
+}

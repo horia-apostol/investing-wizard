@@ -1,0 +1,275 @@
+﻿@page "/Exchange/{ExchangeCode}"
+@using InvestingWizard.Application.Features.Exchanges.Queries.GetExchangeByCode
+@using InvestingWizard.Application.Features.Exchanges.Queries.GetExchangeStatusByCode
+@using InvestingWizard.WebUI.Interfaces
+@using Syncfusion.Blazor.Cards
+@using Syncfusion.Blazor.Navigations
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Spinner
+@inject IExchangeDataService ExchangeDataService
+
+@rendermode InteractiveServer
+
+<PageTitle>@ExchangeCode Exchange</PageTitle>
+
+<div class="page-container">
+    <h3 class="page-title">@ExchangeCode Exchange</h3>
+    <br />
+    <SfCard CssClass="exchange-card">
+        <CardContent>
+            @if (isLoading)
+            {
+                <SfSpinner Visible="true"></SfSpinner>
+            }
+            else
+            {
+                <SfTab>
+                    <TabItems>
+                        <TabItem>
+                            <ChildContent>
+                                <TabHeader Text="Information"></TabHeader>
+                            </ChildContent>
+                            <ContentTemplate>
+                                <SfCard CssClass="exchange-info-card">
+                                    <CardContent>
+                                        <h4>Status</h4>
+                                        <table class="table">
+                                            <tr>
+                                                <th>Status:</th>
+                                                <td>
+                                                    <strong class="@(ExchangeStatus?.IsOpen == true ? "status-open" : "status-closed")">
+                                                        @(ExchangeStatus?.IsOpen == true ? "Open" : "Closed")
+                                                    </strong>
+                                                </td>
+                                            </tr>
+                                            @if (!ExchangeStatus?.IsOpen ?? true)
+                                            {
+                                                <tr>
+                                                    <th>Time Until Next Open:</th>
+                                                    <td><strong><span class="timer">@TimeUntilNextOpen</span></strong></td>
+                                                </tr>
+                                            }
+                                        </table>
+                                        <div class="exchange-details">
+                                            <table class="table">
+                                                <tr><th>Code:</th><td><strong>@ExchangeDetails?.Code</strong></td></tr>
+                                                <tr><th>Name:</th><td><strong>@ExchangeDetails?.Name</strong></td></tr>
+                                                <tr><th>Operating MIC:</th><td><strong>@ExchangeDetails?.OperatingMIC</strong></td></tr>
+                                                <tr><th>Country:</th><td><strong>@ExchangeDetails?.Country</strong></td></tr>
+                                                <tr><th>Currency Code:</th><td><strong>@ExchangeDetails?.CurrencyCode</strong></td></tr>
+                                                <tr><th>Time Zone:</th><td><strong>@ExchangeDetails?.TimeZone</strong></td></tr>
+                                            </table>
+                                            <h4>Trading Hours</h4>
+                                            <table class="table">
+                                                <tr><th>Open:</th><td><strong>@ExchangeDetails?.TradingHours?.Open</strong></td></tr>
+                                                <tr><th>Close:</th><td><strong>@ExchangeDetails?.TradingHours?.Close</strong></td></tr>
+                                                <tr><th>Open (UTC):</th><td><strong>@ExchangeDetails?.TradingHours?.OpenUtc</strong></td></tr>
+                                                <tr><th>Close (UTC):</th><td><strong>@ExchangeDetails?.TradingHours?.CloseUtc</strong></td></tr>
+                                                <tr><th>Working Days:</th><td><strong>@string.Join(", ", ExchangeDetails?.TradingHours?.WorkingDays ?? new List<string>())</strong></td></tr>
+                                            </table>
+                                        </div>
+                                    </CardContent>
+                                </SfCard>
+                            </ContentTemplate>
+                        </TabItem>
+                        <TabItem>
+                            <ChildContent>
+                                <TabHeader Text="Holidays"></TabHeader>
+                            </ChildContent>
+                            <ContentTemplate>
+                                <SfCard CssClass="holidays-card">
+                                    <CardContent>
+                                        <SfGrid DataSource="@ExchangeDetails?.Holidays" Height="500" AllowPaging="true" AllowSorting="true">
+                                            <GridColumns>
+                                                <GridColumn Field="Name" HeaderText="Name" Width="200"></GridColumn>
+                                                <GridColumn Field="Date" HeaderText="Date" Width="150" Format="yyyy-MM-dd"></GridColumn>
+                                                <GridColumn Field="Type" HeaderText="Type" Width="150"></GridColumn>
+                                            </GridColumns>
+                                        </SfGrid>
+                                    </CardContent>
+                                </SfCard>
+                            </ContentTemplate>
+                        </TabItem>
+                    </TabItems>
+                </SfTab>
+            }
+        </CardContent>
+    </SfCard>
+</div>
+
+<style>
+    .page-container {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .page-title {
+        color: #2d323e;
+        font-size: 2rem;
+        margin-bottom: 20px;
+    }
+
+    .exchange-card {
+        width: 80%;
+        margin: auto;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+    }
+
+    .exchange-info-card, .holidays-card {
+        margin-bottom: 20px;
+        box-shadow: none;
+        border: none;
+    }
+
+    .exchange-details {
+        margin-bottom: 20px;
+    }
+
+    .table {
+        width: 100%;
+        margin-bottom: 1rem;
+        color: #6c757d;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+        table-layout: fixed;
+    }
+
+        .table th,
+        .table td {
+            vertical-align: top;
+            border-top: 1px solid #dee2e6;
+            width: 50%;
+        }
+
+        .table th {
+            color: #495057;
+            text-align: left;
+        }
+
+        .table td {
+            color: #343a40;
+        }
+
+        .table th, .table td {
+            border: 1px solid #dee2e6;
+            padding: 4px;
+        }
+
+        .table th {
+            background-color: #f8f9fa;
+        }
+
+    .timer {
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-align: center;
+    }
+
+    .status-open {
+        color: green;
+    }
+
+    .status-closed {
+        color: red;
+    }
+
+    .e-tab .e-toolbar-item .e-tab-wrap .e-tab-text {
+        font-family: 'Arial', sans-serif;
+        font-size: 16px;
+        font-weight: bold;
+        color: lightgrey;
+        padding: 10px 20px;
+    }
+
+    .e-tab .e-toolbar-item.e-active .e-tab-wrap .e-tab-text {
+        color: #ffffff;
+        background-color: lightgray;
+        border-radius: 5px;
+    }
+
+    .e-tab .e-content .e-item {
+        padding: 20px;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-top: none;
+        border-radius: 0 0 5px 5px;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string ExchangeCode { get; set; }
+
+    public ExchangeResponseDto ExchangeDetails { get; set; }
+    public ExchangeStatusDto ExchangeStatus { get; set; }
+    public string TimeUntilNextOpen { get; set; }
+    private bool isLoading = true;
+    private System.Timers.Timer timer;
+    private TimeSpan timeUntilNextOpen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        await LoadExchangeDataAsync();
+        isLoading = false;
+        StartTimer();
+    }
+
+    private async Task LoadExchangeDataAsync()
+    {
+        var exchangeTask = ExchangeDataService.GetExchangeByCodeAsync(ExchangeCode);
+        var statusTask = ExchangeDataService.GetExchangeStatusByCodeAsync(ExchangeCode);
+
+        await Task.WhenAll(exchangeTask, statusTask);
+
+        ExchangeDetails = exchangeTask.Result.Value;
+        ExchangeStatus = statusTask.Result.Value;
+
+        if (!ExchangeStatus.IsOpen)
+        {
+            timeUntilNextOpen = ExchangeStatus.TimeUntilNextOpen;
+        }
+
+        UpdateTimeUntilNext();
+    }
+
+    private void StartTimer()
+    {
+        timer = new System.Timers.Timer(1000);
+        timer.Elapsed += async (sender, e) => await UpdateTimeAsync();
+        timer.AutoReset = true;
+        timer.Enabled = true;
+    }
+
+    private async Task UpdateTimeAsync()
+    {
+        if (!ExchangeStatus.IsOpen && timeUntilNextOpen.TotalSeconds > 0)
+        {
+            timeUntilNextOpen = timeUntilNextOpen.Add(TimeSpan.FromSeconds(-1));
+            UpdateTimeUntilNext();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void UpdateTimeUntilNext()
+    {
+        if (ExchangeStatus.IsOpen || timeUntilNextOpen.TotalSeconds <= 0)
+        {
+            TimeUntilNextOpen = string.Empty;
+            return;
+        }
+
+        var totalSeconds = timeUntilNextOpen.TotalSeconds;
+
+        var days = (int)(totalSeconds / 86400);
+        var hours = (int)((totalSeconds % 86400) / 3600);
+        var minutes = (int)((totalSeconds % 3600) / 60);
+        var seconds = (int)(totalSeconds % 60);
+
+        TimeUntilNextOpen = $"{days:D2}:{hours:D2}:{minutes:D2}:{seconds:D2}";
+    }
+}

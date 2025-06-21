@@ -1,0 +1,121 @@
+﻿@inherits LayoutComponentBase
+
+@using InvestingWizard.Application.Features.Companies.Queries.GetAllCompanyCodes
+@using InvestingWizard.Shared.Common
+@using Syncfusion.Blazor.DropDowns
+@using Syncfusion.Blazor.Buttons
+@inject IJSRuntime JS
+
+@rendermode InteractiveServer
+
+<div class="header-container">
+    <div class="navigation-container">
+        <SfButton CssClass="back-button" IconCss="fas fa-arrow-left" @onclick="NavigateBack">Back</SfButton>
+    </div>
+    <div class="search-container">
+        <div class="search-icon">
+            <span class="fas fa-search"></span>
+        </div>
+        <SfAutoComplete TValue="string" TItem="string" Placeholder="e.g. AAPL.US" DataSource="@Tickers">
+            <AutoCompleteEvents TItem="string" TValue="string" OnValueSelect="@OnTickerSelected"></AutoCompleteEvents>
+            <AutoCompleteFieldSettings Value="Text"></AutoCompleteFieldSettings>
+        </SfAutoComplete>
+    </div>
+</div>
+
+<div class="body-content">
+    @Body
+</div>
+
+<style>
+    .header-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 10px 20px;
+        position: relative;
+    }
+
+    .navigation-container {
+        flex-shrink: 0;
+    }
+
+    .search-container {
+        background-color: #f4f4fc;
+        width: 500px;
+        margin: 0 auto;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        padding-left: 30px;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 10px;
+        font-size: 1.2em;
+        color: #666;
+    }
+
+    .search-container .e-input {
+        width: 100%;
+        padding-left: 30px;
+    }
+
+    .body-content {
+        margin: 20px;
+    }
+
+    .back-button {
+        background-color: #2d323e;
+        color: white;
+    }
+</style>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; }
+    [Inject] private HttpClient Http { get; set; }
+
+    public List<string> Tickers { get; set; } = new List<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCompanyCodesAsync();
+    }
+
+    private async Task LoadCompanyCodesAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"https://localhost:7186/api/companies/all-codes");
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<Result<CodesResponseDto>>();
+
+            if (result != null && result.Value != null)
+            {
+                Tickers = result.Value.Codes;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading company codes: {ex.Message}");
+        }
+    }
+
+    private void OnTickerSelected(SelectEventArgs<string> args)
+    {
+        var selectedTicker = args.ItemData;
+        if (!string.IsNullOrEmpty(selectedTicker))
+        {
+            Navigation.NavigateTo($"/Company/{selectedTicker}");
+        }
+    }
+
+    private async Task NavigateBack()
+    {
+        await JS.InvokeVoidAsync("history.back");
+    }
+}

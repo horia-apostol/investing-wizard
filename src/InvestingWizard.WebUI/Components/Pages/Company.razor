@@ -1,0 +1,1162 @@
+﻿@page "/Company/{CompanyCode}"
+
+@rendermode InteractiveServer
+
+@using InvestingWizard.Application.Features.Companies.Queries.GetAllCompanyCodes
+@using InvestingWizard.Application.Features.Companies.Queries.GetBalanceSheetByCodeQuery
+@using InvestingWizard.Application.Features.Companies.Queries.GetCashFlowByCodeQuery
+@using InvestingWizard.Application.Features.Companies.Queries.GetEsgScoresByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetHoldersByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetIncomeStatementByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetInsiderTransactionsByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetNameByCode
+@using InvestingWizard.Shared.Common
+@using Syncfusion.Blazor
+@using Syncfusion.Blazor.Navigations
+@using Syncfusion.Blazor.Popups
+@using Syncfusion.Blazor.Charts
+@using Syncfusion.Blazor.PivotView
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Spinner
+@using Syncfusion.Blazor.DropDowns
+@using Syncfusion.Blazor.Buttons
+@using InvestingWizard.Application.Features.Prices.Queries.GetPricesForChartBySecurityCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetGeneralInformationByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetHighlightsByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetValuationByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetSharesStatsByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetTechnicalsByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetSplitsDividendsByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetAnalystRatingsByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetOutstandingSharesByCode
+@using InvestingWizard.Application.Features.Companies.Queries.GetEarningsByCode
+@using InvestingWizard.Domain.Companies
+@using InvestingWizard.Application.Features.LivePrices.Queries.GetLivePriceByCode
+@using System.Dynamic
+@using System.Timers
+
+@inject NavigationManager Navigation
+@inject HttpClient Http
+
+<PageTitle>@CompanyCode</PageTitle>
+
+<div class="header-container">
+    @if (CurrentPrice != null)
+    {
+        <h4>
+            @Name (@Ticker) <span style="color:@GetChangeColor(CurrentPrice.Close, CurrentPrice.PreviousClose)">@CurrentPrice.Close.ToString("N2")</span>
+            (<span style="color:@GetChangeColor(CurrentPrice.Close, CurrentPrice.PreviousClose)">@GetChangeSign(CurrentPrice.ChangePercent)@CurrentPrice.ChangePercent.ToString("0.00")%</span>)
+        </h4>
+    }
+    else
+    {
+        @if (isLoadingChart || isLoadingCompany)
+        {
+            
+        }
+        else 
+        {
+            <h4>No data available</h4>
+        }
+    }
+</div>
+
+<br />
+<div class="company-page">
+    @if (isLoadingChart || isLoadingCompany)
+    {
+        <SfSpinner Visible="true"></SfSpinner>
+    }
+    else
+    {
+        <SfTab>
+            <TabItems>
+                <TabItem>
+                    <ChildContent>
+                        <TabHeader Text="Chart"></TabHeader>
+                    </ChildContent>
+                    <ContentTemplate>
+                        <div class="company-chart-container">
+                            <div class="company-chart">
+                                <SfStockChart Theme="Syncfusion.Blazor.Theme.Bootstrap5">
+                                    <StockChartTooltipSettings Enable="true" Format="Date: ${point.x}<br />Open: ${point.open}<br />High: ${point.high}<br />Low: ${point.low}<br />Close: ${point.close}<br />Volume: ${point.volume}">
+                                    </StockChartTooltipSettings>
+                                    <StockChartCrosshairSettings Enable="true">
+                                    </StockChartCrosshairSettings>
+                                    <StockChartPrimaryXAxis ValueType="Syncfusion.Blazor.Charts.ValueType.DateTime">
+                                        <StockChartAxisCrosshairTooltip Enable="true">
+                                        </StockChartAxisCrosshairTooltip>
+                                    </StockChartPrimaryXAxis>
+                                    <StockChartPrimaryYAxis LabelFormat="N2">
+                                        <StockChartAxisCrosshairTooltip Enable="true">
+                                        </StockChartAxisCrosshairTooltip>
+                                    </StockChartPrimaryYAxis>
+                                    <StockChartSeriesCollection>
+                                        <StockChartSeries DataSource="@Prices" Type="Syncfusion.Blazor.Charts.ChartSeriesType.Candle" XName="Date" High="High" Low="Low" Open="Open" Close="Close" Volume="Volume">
+                                        </StockChartSeries>
+                                    </StockChartSeriesCollection>
+                                    <StockChartPeriods>
+                                        <StockChartPeriod Interval="1" IntervalType="Syncfusion.Blazor.Charts.RangeIntervalType.Months" Text="1M"></StockChartPeriod>
+                                        <StockChartPeriod Interval="3" IntervalType="Syncfusion.Blazor.Charts.RangeIntervalType.Months" Text="3M"></StockChartPeriod>
+                                        <StockChartPeriod Interval="6" IntervalType="Syncfusion.Blazor.Charts.RangeIntervalType.Months" Text="6M"></StockChartPeriod>
+                                        <StockChartPeriod IntervalType="Syncfusion.Blazor.Charts.RangeIntervalType.Auto" Text="YTD"></StockChartPeriod>
+                                        <StockChartPeriod Interval="1" IntervalType="Syncfusion.Blazor.Charts.RangeIntervalType.Years" Text="1Y" Selected="true"></StockChartPeriod>
+                                        <StockChartPeriod Interval="3" IntervalType="Syncfusion.Blazor.Charts.RangeIntervalType.Years" Text="3Y"></StockChartPeriod>
+                                        <StockChartPeriod Interval="5" IntervalType="Syncfusion.Blazor.Charts.RangeIntervalType.Years" Text="5Y"></StockChartPeriod>
+                                        <StockChartPeriod Interval="10" IntervalType="Syncfusion.Blazor.Charts.RangeIntervalType.Years" Text="10Y"></StockChartPeriod>
+                                        <StockChartPeriod IntervalType="Syncfusion.Blazor.Charts.RangeIntervalType.Auto" Text="All"></StockChartPeriod>
+                                    </StockChartPeriods>
+                                </SfStockChart>
+                            </div>
+                            <div class="company-details">
+                                <div class="content-container">
+                                    <div class="content-item">
+                                        <table class="table">
+                                            <tr><th>Type:</th><td><strong>@GeneralInformation?.Type</strong></td></tr>
+                                            <tr><th>Currency Code:</th><td><strong>@GeneralInformation?.CurrencyCode</strong></td></tr>
+                                            <tr><th>Country Name:</th><td><strong>@GeneralInformation?.CountryName</strong></td></tr>
+                                            <tr><th>Primary Ticker:</th><td><strong>@GeneralInformation?.PrimaryTicker</strong></td></tr>
+                                            <tr><th>Exchange:</th><td><strong>@ExchangeCode</strong></td></tr>
+                                            <tr><th>Sector:</th><td><strong>@GeneralInformation?.Sector</strong></td></tr>
+                                            <tr><th>Industry:</th><td><strong>@GeneralInformation?.Industry</strong></td></tr>
+                                            <tr><th>Description:</th><td><SfButton CssClass="custom-button" @onclick="ShowDescriptionDialog">See Description</SfButton></td></tr>
+                                        </table>
+                                    </div>
+                                    <div class="content-item">
+                                        <table class="table">
+                                            <tr><th>Fiscal Year End:</th><td><strong>@GeneralInformation?.FiscalYearEnd</strong></td></tr>
+                                            <tr><th>IPO Date:</th><td><strong>@GeneralInformation?.IPODate?.ToString("yyyy-MM-dd")</strong></td></tr>
+                                            <tr><th>Address:</th><td><strong>@GeneralInformation?.Address</strong></td></tr>
+                                            <tr><th>Headquarters Country:</th><td><strong>@GeneralInformation?.HeadquartersCountry</strong></td></tr>
+                                            <tr><th>Phone:</th><td><strong>@GeneralInformation?.Phone</strong></td></tr>
+                                            <tr><th>Web URL:</th><td><a href="@GeneralInformation?.WebURL" target="_blank"><strong>@GeneralInformation?.WebURL</strong></a></td></tr>
+                                            <tr><th>CEO Name:</th><td><strong>@GeneralInformation?.CeoName</strong></td></tr>
+                                            <tr><th>Full Time Employees:</th><td><strong>@GeneralInformation?.FullTimeEmployees?.ToString("N2")</strong></td></tr>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </ContentTemplate>
+                </TabItem>
+                <TabItem>
+                    <ChildContent>
+                        <TabHeader Text="Information"></TabHeader>
+                    </ChildContent>
+                    <ContentTemplate>
+                        <div class="content-container">
+                            <div class="content-item">
+                                <SfTab>
+                                    <TabItems>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="Highlights"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <table class="table">
+                                                    <tr><th>Market Capitalization:</th><td><strong>@Highlights?.MarketCapitalization?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Market Capitalization (Mln):</th><td><strong>@Highlights?.MarketCapitalizationMln?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>EBITDA:</th><td><strong>@Highlights?.EBITDA?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>PE Ratio:</th><td><strong>@Highlights?.PERatio?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>PEG Ratio:</th><td><strong>@Highlights?.PEGRatio?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Wall Street Target Price:</th><td><strong>@Highlights?.WallStreetTargetPrice?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Book Value:</th><td><strong>@Highlights?.BookValue?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Dividend Share:</th><td><strong>@Highlights?.DividendShare?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Dividend Yield:</th><td><strong>@Highlights?.DividendYield?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Earnings Share:</th><td><strong>@Highlights?.EarningsShare?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>EPS Estimate Current Year:</th><td><strong>@Highlights?.EPSEstimateCurrentYear?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>EPS Estimate Next Year:</th><td><strong>@Highlights?.EPSEstimateNextYear?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>EPS Estimate Next Quarter:</th><td><strong>@Highlights?.EPSEstimateNextQuarter?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>EPS Estimate Current Quarter:</th><td><strong>@Highlights?.EPSEstimateCurrentQuarter?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Most Recent Quarter:</th><td><strong>@Highlights?.MostRecentQuarter?.ToString("yyyy-MM-dd")</strong></td></tr>
+                                                    <tr><th>Profit Margin:</th><td><strong>@Highlights?.ProfitMargin?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Operating Margin TTM:</th><td><strong>@Highlights?.OperatingMarginTTM?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Return on Assets TTM:</th><td><strong>@Highlights?.ReturnOnAssetsTTM?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Return on Equity TTM:</th><td><strong>@Highlights?.ReturnOnEquityTTM?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Revenue TTM:</th><td><strong>@Highlights?.RevenueTTM?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Revenue Per Share TTM:</th><td><strong>@Highlights?.RevenuePerShareTTM?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Quarterly Revenue Growth YOY:</th><td><strong>@Highlights?.QuarterlyRevenueGrowthYOY?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Gross Profit TTM:</th><td><strong>@Highlights?.GrossProfitTTM?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Diluted EPS TTM:</th><td><strong>@Highlights?.DilutedEpsTTM?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Quarterly Earnings Growth YOY:</th><td><strong>@Highlights?.QuarterlyEarningsGrowthYOY?.ToString("N2")</strong></td></tr>
+                                                </table>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="Valuation"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <table class="table">
+                                                    <tr><th>Trailing PE:</th><td><strong>@Valuation?.TrailingPE?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Forward PE:</th><td><strong>@Valuation?.ForwardPE?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Price Sales TTM:</th><td><strong>@Valuation?.PriceSalesTTM?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Price Book MRQ:</th><td><strong>@Valuation?.PriceBookMRQ?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Enterprise Value:</th><td><strong>@Valuation?.EnterpriseValue?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Enterprise Value Revenue:</th><td><strong>@Valuation?.EnterpriseValueRevenue?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Enterprise Value EBITDA:</th><td><strong>@Valuation?.EnterpriseValueEbitda?.ToString("N2")</strong></td></tr>
+                                                </table>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="Shares Stats"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <table class="table">
+                                                    <tr><th>Shares Outstanding:</th><td><strong>@SharesStats?.SharesOutstanding?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Shares Float:</th><td><strong>@SharesStats?.SharesFloat?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Percent Insiders:</th><td><strong>@SharesStats?.PercentInsiders?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Percent Institutions:</th><td><strong>@SharesStats?.PercentInstitutions?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Shares Short:</th><td><strong>@SharesStats?.SharesShort?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Shares Short Prior Month:</th><td><strong>@SharesStats?.SharesShortPriorMonth?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Short Ratio:</th><td><strong>@SharesStats?.ShortRatio?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Short Percent Outstanding:</th><td><strong>@SharesStats?.ShortPercentOutstanding?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Short Percent Float:</th><td><strong>@SharesStats?.ShortPercentFloat?.ToString("N2")</strong></td></tr>
+                                                </table>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="Technicals"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <table class="table">
+                                                    <tr><th>Beta:</th><td><strong>@Technicals?.Beta?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>52 Week High:</th><td><strong>@Technicals?._52WeekHigh?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>52 Week Low:</th><td><strong>@Technicals?._52WeekLow?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>50 Day MA:</th><td><strong>@Technicals?._50DayMA?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>200 Day MA:</th><td><strong>@Technicals?._200DayMA?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Shares Short:</th><td><strong>@Technicals?.SharesShort?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Shares Short Prior Month:</th><td><strong>@Technicals?.SharesShortPriorMonth?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Short Ratio:</th><td><strong>@Technicals?.ShortRatio?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Short Percent Outstanding:</th><td><strong>@Technicals?.ShortPercentOutstanding?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Short Percent Float:</th><td><strong>@Technicals?.ShortPercentFloat?.ToString("N2")</strong></td></tr>
+                                                </table>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="Splits & Dividends"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <table class="table">
+                                                    <tr><th>Forward Annual Dividend Rate:</th><td><strong>@SplitsDividends?.ForwardAnnualDividendRate?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Forward Annual Dividend Yield:</th><td><strong>@($"{(SplitsDividends?.ForwardAnnualDividendYield * 100):N2}%")</strong></td></tr>
+                                                    <tr><th>Payout Ratio:</th><td><strong>@SplitsDividends?.PayoutRatio?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Dividend Date:</th><td><strong>@SplitsDividends?.DividendDate?.ToString("yyyy-MM-dd")</strong></td></tr>
+                                                    <tr><th>Ex Dividend Date:</th><td><strong>@SplitsDividends?.ExDividendDate?.ToString("yyyy-MM-dd")</strong></td></tr>
+                                                    <tr><th>Last Split Factor:</th><td><strong>@SplitsDividends?.LastSplitFactor</strong></td></tr>
+                                                    <tr><th>Last Split Date:</th><td><strong>@SplitsDividends?.LastSplitDate?.ToString("yyyy-MM-dd")</strong></td></tr>
+                                                </table>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="Analyst Ratings"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <table class="table">
+                                                    <tr><th>Rating:</th><td><strong>@AnalystRatings?.Rating</strong></td></tr>
+                                                    <tr><th>Target Price:</th><td><strong>@AnalystRatings?.TargetPrice?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Strong Buy:</th><td><strong>@AnalystRatings?.StrongBuy?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Buy:</th><td><strong>@AnalystRatings?.Buy?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Hold:</th><td><strong>@AnalystRatings?.Hold?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Sell:</th><td><strong>@AnalystRatings?.Sell?.ToString("N2")</strong></td></tr>
+                                                    <tr><th>Strong Sell:</th><td><strong>@AnalystRatings?.StrongSell?.ToString("N2")</strong></td></tr>
+                                                </table>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                    </TabItems>
+                                </SfTab>
+                            </div>
+                        </div>
+                    </ContentTemplate>
+                </TabItem>
+                <TabItem>
+                    <ChildContent>
+                        <TabHeader Text="Data"></TabHeader>
+                    </ChildContent>
+                    <ContentTemplate>
+                        <div class="content-container">
+                            <div class="content-item">
+                                <SfTab>
+                                    <TabItems>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="Outstanding Shares"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <SfPivotView TValue="FormattedOutstandingShare" Height="500" EnablePaging=true>
+                                                    <PivotViewDataSourceSettings DataSource="@formattedOutstandingShares" ShowGrandTotals=false EnableSorting="true">
+                                                        <PivotViewPageSettings CurrentColumnPage="1" CurrentRowPage="1" ColumnPageSize="5" RowPageSize="5"></PivotViewPageSettings>
+                                                        <PivotViewPagerSettings ShowRowPager=false></PivotViewPagerSettings>
+                                                        <PivotViewColumns>
+                                                            <PivotViewColumn Name="Year"></PivotViewColumn>
+                                                        </PivotViewColumns>
+                                                        <PivotViewRows>
+                                                            <PivotViewRow Name="Quarter" Caption="Quarter"></PivotViewRow>
+                                                        </PivotViewRows>
+                                                        <PivotViewValues>
+                                                            <PivotViewValue Name="SharesMln" Caption="Shares (Mln)"></PivotViewValue>
+                                                        </PivotViewValues>
+                                                        <PivotViewSortSettings>
+                                                            <PivotViewSortSetting Name="Year" Order="Syncfusion.Blazor.PivotView.Sorting.Descending"></PivotViewSortSetting>
+                                                        </PivotViewSortSettings>
+                                                    </PivotViewDataSourceSettings>
+                                                    <PivotViewGridSettings ColumnWidth="140"></PivotViewGridSettings>
+                                                </SfPivotView>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="Earnings"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <div>
+                                                    <div class="pivot-title">History</div>
+                                                    <SfPivotView TValue="EarningsHistoryResponseDto" Height="260" Name="History">
+                                                        <PivotViewDataSourceSettings DataSource="@Earnings.EarningsHistories" ShowGrandTotals="false" EnableSorting="true">
+                                                            <PivotViewRows>
+                                                                <PivotViewRow Name="Date" Caption="Date"></PivotViewRow>
+                                                            </PivotViewRows>
+                                                            <PivotViewValues>
+                                                                <PivotViewValue Name="EpsActual" Caption="EPS Actual"></PivotViewValue>
+                                                                <PivotViewValue Name="EpsEstimate" Caption="EPS Estimate"></PivotViewValue>
+                                                                <PivotViewValue Name="EpsDifference" Caption="EPS Difference"></PivotViewValue>
+                                                                <PivotViewValue Name="SurprisePercent" Caption="Surprise (%)"></PivotViewValue>
+                                                            </PivotViewValues>
+                                                            <PivotViewSortSettings>
+                                                                <PivotViewSortSetting Name="Date" Order="Syncfusion.Blazor.PivotView.Sorting.Descending"></PivotViewSortSetting>
+                                                            </PivotViewSortSettings>
+                                                        </PivotViewDataSourceSettings>
+                                                        <PivotViewGridSettings ColumnWidth="140"></PivotViewGridSettings>
+                                                    </SfPivotView>
+                                                </div>
+                                                <div>
+                                                    <SfPivotView TValue="EarningsAnnualResponseDto" Height="260" EnablePaging="true">
+                                                        <PivotViewDataSourceSettings DataSource="@Earnings.EarningsAnnuals" ShowGrandTotals="false" EnableSorting="true">
+                                                            <PivotViewPageSettings CurrentColumnPage="1" CurrentRowPage="1" ColumnPageSize="5" RowPageSize="5"></PivotViewPageSettings>
+                                                            <PivotViewPagerSettings ShowRowPager="false"></PivotViewPagerSettings>
+                                                            <PivotViewColumns>
+                                                                <PivotViewColumn Name="Date" Caption="Actual EPS"></PivotViewColumn>
+                                                            </PivotViewColumns>
+                                                            <PivotViewRows>
+                                                                <PivotViewRow Name="Label"></PivotViewRow>
+                                                            </PivotViewRows>
+                                                            <PivotViewValues>
+                                                                <PivotViewValue Name="EpsActual" Caption="EPS Actual"></PivotViewValue>
+                                                            </PivotViewValues>
+                                                            <PivotViewSortSettings>
+                                                                <PivotViewSortSetting Name="Date" Order="Syncfusion.Blazor.PivotView.Sorting.Descending"></PivotViewSortSetting>
+                                                            </PivotViewSortSettings>
+                                                        </PivotViewDataSourceSettings>
+                                                        <PivotViewGridSettings ColumnWidth="140"></PivotViewGridSettings>
+                                                    </SfPivotView>
+                                                </div>
+                                                <div>
+                                                    <div class="pivot-title">Trends</div>
+                                                    <SfPivotView TValue="EarningsTrendResponseDto" Height="260">
+                                                        <PivotViewDataSourceSettings DataSource="@Earnings.EarningsTrends" ShowGrandTotals="false" ExpandAll="false" EnableSorting="true">
+                                                            <PivotViewRows>
+                                                                <PivotViewRow Name="Date" Caption="Date"></PivotViewRow>
+                                                            </PivotViewRows>
+                                                            <PivotViewValues>
+                                                                <PivotViewValue Name="Growth" Caption="Growth"></PivotViewValue>
+                                                                <PivotViewValue Name="EarningsEstimateAvg" Caption="Earnings Estimate Avg"></PivotViewValue>
+                                                                <PivotViewValue Name="EarningsEstimateLow" Caption="Earnings Estimate Low"></PivotViewValue>
+                                                                <PivotViewValue Name="EarningsEstimateHigh" Caption="Earnings Estimate High"></PivotViewValue>
+                                                                <PivotViewValue Name="EarningsEstimateYearAgoEps" Caption="Earnings Estimate Year Ago EPS"></PivotViewValue>
+                                                                <PivotViewValue Name="RevenueEstimateAvg" Caption="Revenue Estimate Avg"></PivotViewValue>
+                                                            </PivotViewValues>
+                                                            <PivotViewSortSettings>
+                                                                <PivotViewSortSetting Name="Date" Order="Syncfusion.Blazor.PivotView.Sorting.Descending"></PivotViewSortSetting>
+                                                            </PivotViewSortSettings>
+                                                        </PivotViewDataSourceSettings>
+                                                        <PivotViewGridSettings ColumnWidth="140"></PivotViewGridSettings>
+                                                    </SfPivotView>
+                                                </div>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="Insider Transactions"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <SfGrid DataSource="@InsiderTransactions.Transactions" Height="500" AllowSorting="true">
+                                                    <GridColumns>
+                                                        <GridColumn Field="TransactionDate" HeaderText="Transaction Date" TextAlign="TextAlign.Center" Format="yyyy-MM-dd" Width="150"></GridColumn>
+                                                        <GridColumn Field="OwnerName" HeaderText="Owner Name" TextAlign="TextAlign.Center" Width="200"></GridColumn>
+                                                        <GridColumn Field="TransactionAmount" HeaderText="Transaction Amount" TextAlign="TextAlign.Center" Format="N2" Width="150">
+                                                            <Template>
+                                                            @{
+                                                                var transaction = (InsiderTransactionResponseDto)context;
+                                                                if (transaction.TransactionAmount.HasValue)
+                                                                {
+                                                                    if (transaction.TransactionAmount.Value > 0)
+                                                                    {
+                                                                        <span>@transaction.TransactionAmount.Value.ToString("N2")</span>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <span>N/A</span>
+                                                                    }
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span>N/A</span>
+                                                                }
+                                                            }
+                                                            </Template>
+                                                        </GridColumn>
+                                                        <GridColumn Field="TransactionPrice" HeaderText="Transaction Price" TextAlign="TextAlign.Center" Format="C2" Width="150"></GridColumn>
+                                                        <GridColumn Field="TransactionType" HeaderText="Transaction Type" TextAlign="TextAlign.Center" Width="150">
+                                                            <Template>
+                                                                @{
+                                                                    var transaction = (InsiderTransactionResponseDto)context;
+                                                                    if (transaction.TransactionType == "A")
+                                                                    {
+                                                                        <span>Aquire</span>
+                                                                    }
+                                                                    else if (transaction.TransactionType == "D")
+                                                                    {
+                                                                        <span>Dispose</span>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <span>N/A</span>
+                                                                    }
+                                                                }
+                                                            </Template>
+                                                        </GridColumn>
+                                                        <GridColumn HeaderText="SEC Link" TextAlign="TextAlign.Center" Width="150">
+                                                            <Template>
+                                                                @{
+                                                                    var transaction = (InsiderTransactionResponseDto)context;
+                                                                    if (!string.IsNullOrEmpty(transaction.SecLink))
+                                                                    {
+                                                                        <a href="@transaction.SecLink" target="_blank" class="pivot-table-link">Link</a>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <span>N/A</span>
+                                                                    }
+                                                                }
+                                                            </Template>
+                                                        </GridColumn>
+                                                    </GridColumns>
+                                                    <GridSortSettings>
+                                                        <GridSortColumns>
+                                                            <GridSortColumn Field="TransactionDate" Direction="Syncfusion.Blazor.Grids.SortDirection.Descending"></GridSortColumn>
+                                                            </GridSortColumns>
+                                                        </GridSortSettings>
+                                                </SfGrid>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="Holders"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <SfTab>
+                                                    <TabItems>
+                                                        <TabItem>
+                                                            <ChildContent>
+                                                                <TabHeader Text="Institutions"></TabHeader>
+                                                            </ChildContent>
+                                                            <ContentTemplate>
+                                                                <SfGrid DataSource="@Holders.Institutions" Height="500" AllowPaging="true" AllowSorting="true">
+                                                                    <GridColumns>
+                                                                        <GridColumn Field="Name" HeaderText="Name" TextAlign="TextAlign.Center" Width="200"></GridColumn>
+                                                                        <GridColumn Field="TotalShares" HeaderText="Total Shares (%)" TextAlign="TextAlign.Center" Format="N2" Width="150"></GridColumn>
+                                                                        <GridColumn Field="TotalAssets" HeaderText="Total Assets (%)" TextAlign="TextAlign.Center" Format="N2" Width="150"></GridColumn>
+                                                                        <GridColumn Field="CurrentShares" HeaderText="Current Shares" TextAlign="TextAlign.Center" Format="N2" Width="150"></GridColumn>
+                                                                        <GridColumn Field="Change" HeaderText="Change" TextAlign="TextAlign.Center" Format="N2" Width="150"></GridColumn>
+                                                                        <GridColumn Field="ChangePercentage" HeaderText="Change (%)" TextAlign="TextAlign.Center" Format="N2" Width="150"></GridColumn>
+                                                                    </GridColumns>
+                                                                    <GridSortSettings>
+                                                                        <GridSortColumns>
+                                                                            <GridSortColumn Field="TotalShares" Direction="Syncfusion.Blazor.Grids.SortDirection.Descending"></GridSortColumn>
+                                                                        </GridSortColumns>
+                                                                    </GridSortSettings>
+                                                                </SfGrid>
+                                                            </ContentTemplate>
+                                                        </TabItem>
+                                                        <TabItem>
+                                                            <ChildContent>
+                                                                <TabHeader Text="Funds"></TabHeader>
+                                                            </ChildContent>
+                                                            <ContentTemplate>
+                                                                <SfGrid DataSource="@Holders.Funds" Height="500" AllowPaging="true" AllowSorting="true">
+                                                                    <GridColumns>
+                                                                        <GridColumn Field="Name" HeaderText="Name" TextAlign="TextAlign.Center" Width="200"></GridColumn>
+                                                                        <GridColumn Field="TotalShares" HeaderText="Total Shares (%)" TextAlign="TextAlign.Center" Format="N2" Width="150"></GridColumn>
+                                                                        <GridColumn Field="TotalAssets" HeaderText="Total Assets (%)" TextAlign="TextAlign.Center" Format="N2" Width="150"></GridColumn>
+                                                                        <GridColumn Field="CurrentShares" HeaderText="Current Shares" TextAlign="TextAlign.Center" Format="N2" Width="150"></GridColumn>
+                                                                        <GridColumn Field="Change" HeaderText="Change" TextAlign="TextAlign.Center" Format="N2" Width="150"></GridColumn>
+                                                                        <GridColumn Field="ChangePercentage" HeaderText="Change (%)" TextAlign="TextAlign.Center" Format="N2" Width="150"></GridColumn>
+                                                                    </GridColumns>
+                                                                    <GridSortSettings>
+                                                                        <GridSortColumns>
+                                                                            <GridSortColumn Field="TotalShares" Direction="Syncfusion.Blazor.Grids.SortDirection.Descending"></GridSortColumn>
+                                                                        </GridSortColumns>
+                                                                    </GridSortSettings>
+                                                                </SfGrid>
+                                                            </ContentTemplate>
+                                                        </TabItem>
+                                                    </TabItems>
+                                                </SfTab>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="ESG Scores"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <div class="content-container">
+                                                    <div class="content-item">
+                                                        <h4>Details</h4>
+                                                        <table class="table esg-table">
+                                                            <tr><th>Rating Date:</th><td>@EsgScores.RatingDate?.ToString("yyyy-MM-dd")</td></tr>
+                                                            <tr><th>Total ESG:</th><td>@EsgScores.TotalEsg?.ToString("N2")</td></tr>
+                                                            <tr><th>Total ESG Percentile:</th><td>@EsgScores.TotalEsgPercentile?.ToString("N2")</td></tr>
+                                                            <tr><th>Environment Score:</th><td>@EsgScores.EnvironmentScore?.ToString("N2")</td></tr>
+                                                            <tr><th>Environment Score Percentile:</th><td>@EsgScores.EnvironmentScorePercentile?.ToString("N2")</td></tr>
+                                                            <tr><th>Social Score:</th><td>@EsgScores.SocialScore?.ToString("N2")</td></tr>
+                                                            <tr><th>Social Score Percentile:</th><td>@EsgScores.SocialScorePercentile?.ToString("N2")</td></tr>
+                                                            <tr><th>Governance Score:</th><td>@EsgScores.GovernanceScore?.ToString("N2")</td></tr>
+                                                            <tr><th>Governance Score Percentile:</th><td>@EsgScores.GovernanceScorePercentile?.ToString("N2")</td></tr>
+                                                            <tr><th>Controversy Level:</th><td>@EsgScores.ControversyLevel?.ToString("N2")</td></tr>
+                                                        </table>
+                                                    </div>
+                                                    <div class="content-item">
+                                                        <h4>Activity Involvement</h4>
+                                                        <table class="table">
+                                                            <tr><th>Activity</th><th>Involvement</th></tr>
+                                                            <tr><td>Gambling</td><td>@GetInvolvement("gambling")</td></tr>
+                                                            <tr><td>Nuclear</td><td>@GetInvolvement("nuclear")</td></tr>
+                                                            <tr><td>Adult</td><td>@GetInvolvement("adult")</td></tr>
+                                                            <tr><td>Animal Testing</td><td>@GetInvolvement("animalTesting")</td></tr>
+                                                            <tr><td>Tobacco</td><td>@GetInvolvement("tobacco")</td></tr>
+                                                            <tr><td>Fur Leather</td><td>@GetInvolvement("furLeather")</td></tr>
+                                                            <tr><td>Palm Oil</td><td>@GetInvolvement("palmOil")</td></tr>
+                                                            <tr><td>GMO</td><td>@GetInvolvement("gmo")</td></tr>
+                                                            <tr><td>Coal</td><td>@GetInvolvement("coal")</td></tr>
+                                                            <tr><td>Controversial Weapons</td><td>@GetInvolvement("controversialWeapons")</td></tr>
+                                                            <tr><td>Alcoholic</td><td>@GetInvolvement("alcoholic")</td></tr>
+                                                            <tr><td>Small Arms</td><td>@GetInvolvement("smallArms")</td></tr>
+                                                            <tr><td>Military Contract</td><td>@GetInvolvement("militaryContract")</td></tr>
+                                                            <tr><td>Pesticides</td><td>@GetInvolvement("pesticides")</td></tr>
+                                                            <tr><td>Catholic</td><td>@GetInvolvement("catholic")</td></tr>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                        <TabItem>
+                                            <ChildContent>
+                                                <TabHeader Text="Balance Sheet"></TabHeader>
+                                            </ChildContent>
+                                            <ContentTemplate>
+                                                <SfGrid DataSource="@BalanceSheetData" Height="700">
+                                                    <GridColumns>
+                                                        <GridColumn Field="Label" HeaderText="Label" Width="250"></GridColumn>
+                                                        @foreach (var date in BalanceSheetDates.OrderByDescending(date => date).Take(5).ToList())
+                                                        {
+                                                            <GridColumn Field="@date" HeaderText="@date" Width="150" Format="N2"></GridColumn>
+                                                        }
+                                                    </GridColumns>
+                                                </SfGrid>
+                                            </ContentTemplate>
+                                        </TabItem>
+                                    </TabItems>
+                                </SfTab>
+                            </div>
+                        </div>
+                    </ContentTemplate>
+                </TabItem>
+            </TabItems>
+        </SfTab>
+    }
+</div>
+
+<SfDialog @bind-Visible="isVisible" Width="500px" AllowDragging="true" EnableResize="true" IsModal="true" ShowCloseIcon="true">
+    <DialogTemplates>
+        <Header> Description </Header>
+        <Content> <p>@GeneralInformation?.Description</p> </Content>
+    </DialogTemplates>
+    <DialogButtons>
+        <DialogButton Content="Close" IsPrimary="true" OnClick="CloseDialog"></DialogButton>
+    </DialogButtons>
+</SfDialog>
+
+<style>
+    .custom-button {
+        background-color: #2d323e !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 4px !important;
+        padding: 5px 10px !important;
+        font-size: 14px !important;
+        cursor: pointer !important;
+        transition: background-color 0.3s ease !important;
+    }
+
+        .custom-button:hover {
+            background-color: #1b1e23 !important;
+        }
+
+    .header-container {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+    }
+
+        .header-container h4 {
+            margin: 0;
+        }
+
+    .content-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .content-item {
+        flex: 1;
+        min-width: 400px;
+        max-width: 1240px;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        box-sizing: border-box;
+    }
+
+    .table {
+        width: 100%;
+        margin-bottom: 1rem;
+        color: #6c757d;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+        .table th,
+        .table td {
+            vertical-align: top;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .table th {
+            color: #495057;
+            text-align: left;
+        }
+
+        .table td {
+            color: #343a40;
+        }
+
+        .table th, .table td {
+            border: 1px solid #dee2e6;
+            padding: 4px;
+        }
+
+        .table th {
+            background-color: #f8f9fa;
+        }
+
+    .pivot-table-link {
+        color: deepskyblue;
+        text-decoration: none;
+    }
+
+        .pivot-table-link:hover {
+            text-decoration: underline;
+        }
+
+    .pivot-title {
+        font-weight: bold;
+        margin-bottom: 10px;
+        font-size: 1rem;
+    }
+
+    .company-chart-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .company-chart, .company-details {
+        width: 100%;
+        max-width: 1000px;
+    }
+
+    .e-tab .e-toolbar-item .e-tab-wrap .e-tab-text {
+        font-family: 'Arial', sans-serif;
+        font-size: 16px;
+        font-weight: bold;
+        color: lightgrey;
+        padding: 10px 20px;
+    }
+
+    .e-tab .e-toolbar-item.e-active .e-tab-wrap .e-tab-text {
+        color: #ffffff;
+        background-color: lightgray;
+        border-radius: 5px;
+    }
+
+    .e-tab .e-content .e-item {
+        padding: 20px;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-top: none;
+        border-radius: 0 0 5px 5px;
+    }
+</style>
+
+
+
+@code {
+    [Parameter]
+    public string CompanyCode { get; set; }
+
+    public string Ticker { get; set; }
+    public string ExchangeCode { get; set; }
+
+    public string Name { get; set;}
+
+    public List<string> Tickers { get; set; } = new List<string>();
+
+    public List<ChartPriceResponseDto>? Prices { get; set; }
+    public GeneralInformationResponseDto GeneralInformation { get; set; }
+    public HighlightsResponseDto Highlights { get; set; }
+    public ValuationResponseDto Valuation { get; set; }
+    public SharesStatsResponseDto SharesStats { get; set; }
+    public TechnicalsResponseDto Technicals { get; set; }
+    public SplitsDividendsResponseDto SplitsDividends { get; set; }
+    public AnalystRatingsResponseDto AnalystRatings { get; set; }
+    public OutstandingSharesResponseDto OutstandingShares { get; set; }
+    public EarningsResponseDto Earnings { get; set; }
+    public BalanceSheetReportResponseDto BalanceSheetReport { get; set; }
+    public IncomeStatementReportResponseDto IncomestatementReport { get; set; }
+    public CashFlowReportResponseDto CashFlowReport { get; set; }
+    public EsgScoresResponseDto EsgScores { get; set; }
+    public HoldersResponseDto Holders { get; set; }
+    public InsiderTransactionsResponseDto InsiderTransactions { get; set; }
+
+    public LivePriceResponseDto CurrentPrice { get; set; }
+    private Timer priceUpdateTimer;
+
+    private bool isLoadingChart = true;
+    private bool isLoadingCompany = true;
+    private bool isVisible { get; set; } = false;
+
+    public List<ExpandoObject> BalanceSheetData { get; set; } = new List<ExpandoObject>();
+    public List<string> BalanceSheetDates { get; set; } = new List<string>();
+
+    public List<FormattedOutstandingShare> formattedOutstandingShares { get; set; } = new List<FormattedOutstandingShare>();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        priceUpdateTimer = new Timer(10000);
+        priceUpdateTimer.Elapsed += async (sender, e) => await UpdateCurrentPriceAsync();
+        priceUpdateTimer.AutoReset = true;
+        priceUpdateTimer.Enabled = true;
+
+        await base.OnInitializedAsync();
+        await LoadCompanyCodesAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            Ticker = CompanyCode.Split('.')[0];
+            ExchangeCode = CompanyCode.Split('.')[1];
+
+            isLoadingChart = true;
+            isLoadingCompany = true;
+
+            Prices = await GetPricesAsync(CompanyCode);
+            CurrentPrice = await GetCurrentPriceAsync(CompanyCode);
+
+            await LoadCompanyData(CompanyCode);
+
+            FormatOutstandingSharesData();
+
+            BalanceSheetDates = BalanceSheetReport.QuarterlyBalanceSheet.Select(b => b.Date?.ToString("yyyy-MM-dd")).ToList();
+
+            FormatBalanceSheetData();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading data for {CompanyCode}: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingChart = false;
+            isLoadingCompany = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadCompanyCodesAsync()
+    {
+        try
+        {
+            var response = await Http.GetAsync($"https://localhost:7186/api/companies/all-codes");
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<Result<CodesResponseDto>>();
+
+            if (result != null && result.Value != null)
+            {
+                Tickers = result.Value.Codes;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading company codes: {ex.Message}");
+        }
+    }
+
+    private async Task<List<ChartPriceResponseDto>> GetPricesAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/prices/chart/{companyCode}");
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<Result<List<ChartPriceResponseDto>>>();
+
+        if (result == null || result.Value == null)
+        {
+            throw new Exception("Failed to load prices");
+        }
+
+        return result.Value;
+    }
+
+    private async Task<LivePriceResponseDto> GetCurrentPriceAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/live-prices-cache/{companyCode}");
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<Result<LivePriceResponseDto>>();
+
+        if (result == null || result.Value == null)
+        {
+            throw new Exception("Failed to load current price");
+        }
+
+        return result.Value;
+    }
+
+    private async Task UpdateCurrentPriceAsync()
+    {
+        try
+        {
+            var updatedPrice = await GetCurrentPriceAsync(CompanyCode);
+            await InvokeAsync(() =>
+            {
+                CurrentPrice = updatedPrice;
+                StateHasChanged();
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating price for {CompanyCode}: {ex.Message}");
+        }
+    }
+
+    private async Task LoadCompanyData(string companyCode)
+    {
+        var generalInfoTask = GetGeneralInformationAsync(companyCode);
+        var highlightsTask = GetHighlightsAsync(companyCode);
+        var valuationTask = GetValuationAsync(companyCode);
+        var sharesStatsTask = GetSharesStatsAsync(companyCode);
+        var technicalsTask = GetTechnicalsAsync(companyCode);
+        var splitsDividendsTask = GetSplitsDividendsAsync(companyCode);
+        var analystRatingsTask = GetAnalystRatingsAsync(companyCode);
+        var outstandingSharesTask = GetOutstandingSharesAsync(companyCode);
+        var earningsTask = GetEarningsAsync(companyCode);
+        var balanceSheetReportTask = GetBalanceSheetReportAsync(companyCode);
+        var incomeStatementReportTask = GetIncomeStatementReportAsync(companyCode);
+        var cashFlowReportTask = GetCashFlowReportAsync(companyCode);
+        var esgScoresTask = GetEsgScoresAsync(companyCode);
+        var holdersTask = GetHoldersAsync(companyCode);
+        var insiderTransactionsTask = GetInsiderTransactionsAsync(companyCode);
+        var name = GetCompanyNameAsync(companyCode);
+
+        await Task.WhenAll(generalInfoTask, highlightsTask, valuationTask, sharesStatsTask, technicalsTask, splitsDividendsTask, analystRatingsTask, outstandingSharesTask, earningsTask, balanceSheetReportTask, incomeStatementReportTask, cashFlowReportTask, esgScoresTask, holdersTask, insiderTransactionsTask, name);
+    }
+
+    private async Task GetCompanyNameAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/name/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<CompanyNameResponseDto>>();
+        Name = result.Value.Name;
+    }
+
+    private async Task GetGeneralInformationAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/general-information/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<GeneralInformationResponseDto>>();
+        GeneralInformation = result.Value;
+    }
+
+    private async Task GetHighlightsAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/highlights/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<HighlightsResponseDto>>();
+        Highlights = result.Value;
+    }
+
+    private async Task GetValuationAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/valuation/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<ValuationResponseDto>>();
+        Valuation = result.Value;
+    }
+
+    private async Task GetSharesStatsAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/shares-stats/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<SharesStatsResponseDto>>();
+        SharesStats = result.Value;
+    }
+
+    private async Task GetTechnicalsAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/technicals/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<TechnicalsResponseDto>>();
+        Technicals = result.Value;
+    }
+
+    private async Task GetSplitsDividendsAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/splits-dividends/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<SplitsDividendsResponseDto>>();
+        SplitsDividends = result.Value;
+    }
+
+    private async Task GetAnalystRatingsAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/analyst-ratings/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<AnalystRatingsResponseDto>>();
+        AnalystRatings = result.Value;
+    }
+
+    private async Task GetOutstandingSharesAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/outstanding-shares/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<OutstandingSharesResponseDto>>();
+        OutstandingShares = result.Value;
+    }
+
+    private async Task GetEarningsAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/earnings/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<EarningsResponseDto>>();
+        Earnings = result.Value;
+    }
+
+    private async Task GetBalanceSheetReportAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/financials/balance-sheet/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<BalanceSheetReportResponseDto>>();
+        BalanceSheetReport = result.Value;
+    }
+
+    private async Task GetIncomeStatementReportAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/financials/income-statement/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<IncomeStatementReportResponseDto>>();
+        IncomestatementReport = result.Value;
+    }
+
+    private async Task GetCashFlowReportAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/financials/cash-flow/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<CashFlowReportResponseDto>>();
+        CashFlowReport = result.Value;
+    }
+
+    private async Task GetEsgScoresAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/esg-scores/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<EsgScoresResponseDto>>();
+        if (result is null || result.Value is null)
+        {
+            EsgScores = new EsgScoresResponseDto();
+        }
+        else
+        {
+            EsgScores = result.Value;
+        }
+    }
+
+    private async Task GetHoldersAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/holders/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<HoldersResponseDto>>();
+        Holders = result.Value;
+    }
+
+    private async Task GetInsiderTransactionsAsync(string companyCode)
+    {
+        var response = await Http.GetAsync($"https://localhost:7186/api/companies/insider-transactions/{companyCode}");
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<Result<InsiderTransactionsResponseDto>>();
+        InsiderTransactions = result.Value;
+    }
+
+    private void ShowDescriptionDialog()
+    {
+        isVisible = true;
+    }
+
+    private void CloseDialog()
+    {
+        isVisible = false;
+    }
+
+    private void FormatOutstandingSharesData()
+    {
+        if (OutstandingShares == null) return;
+
+        if (OutstandingShares.AnnualShares != null)
+        {
+            formattedOutstandingShares.AddRange(OutstandingShares.AnnualShares.Select(s => new FormattedOutstandingShare
+            {
+                Year = s.Year,
+                Quarter = "Yearly",
+                SharesMln = s.SharesMln
+            }));
+        }
+
+        if (OutstandingShares.QuarterlyShares != null)
+        {
+            formattedOutstandingShares.AddRange(OutstandingShares.QuarterlyShares.Select(s => new FormattedOutstandingShare
+            {
+                Year = s.Year.Split('-')[0],
+                Quarter = s.Year.Split('-')[1],
+                SharesMln = s.SharesMln
+            }));
+        }
+    }
+
+    private void FormatBalanceSheetData()
+    {
+        var pivotData = new List<ExpandoObject>();
+
+        var labels = new Dictionary<string, Func<BalanceSheetResponseDto, object>>
+        {
+            { "Total Assets", b => b.TotalAssets?.ToString("N2") },
+            { "Intangible Assets", b => b.IntangibleAssets?.ToString("N2") },
+            { "Earning Assets", b => b.EarningAssets?.ToString("N2") },
+            { "Other Current Assets", b => b.OtherCurrentAssets?.ToString("N2") },
+            { "Total Liabilities", b => b.TotalLiab?.ToString("N2") },
+            { "Total Stockholder Equity", b => b.TotalStockholderEquity?.ToString("N2") },
+            { "Deferred Long-Term Liabilities", b => b.DeferredLongTermLiab?.ToString("N2") },
+            { "Other Current Liabilities", b => b.OtherCurrentLiab?.ToString("N2") },
+            { "Common Stock", b => b.CommonStock?.ToString("N2") },
+            { "Capital Stock", b => b.CapitalStock?.ToString("N2") },
+            { "Retained Earnings", b => b.RetainedEarnings?.ToString("N2") },
+            { "Other Liabilities", b => b.OtherLiab?.ToString("N2") },
+            { "Goodwill", b => b.GoodWill?.ToString("N2") },
+            { "Other Assets", b => b.OtherAssets?.ToString("N2") },
+            { "Cash", b => b.Cash?.ToString("N2") },
+            { "Cash and Equivalents", b => b.CashAndEquivalents?.ToString("N2") },
+            { "Total Current Liabilities", b => b.TotalCurrentLiabilities?.ToString("N2") },
+            { "Current Deferred Revenue", b => b.CurrentDeferredRevenue?.ToString("N2") },
+            { "Net Debt", b => b.NetDebt?.ToString("N2") },
+            { "Short-Term Debt", b => b.ShortTermDebt?.ToString("N2") },
+            { "Short Long-Term Debt", b => b.ShortLongTermDebt?.ToString("N2") },
+            { "Short Long-Term Debt Total", b => b.ShortLongTermDebtTotal?.ToString("N2") },
+            { "Other Stockholder Equity", b => b.OtherStockholderEquity?.ToString("N2") },
+            { "Property, Plant, and Equipment", b => b.PropertyPlantEquipment?.ToString("N2") },
+            { "Total Current Assets", b => b.TotalCurrentAssets?.ToString("N2") },
+            { "Long-Term Investments", b => b.LongTermInvestments?.ToString("N2") },
+            { "Net Tangible Assets", b => b.NetTangibleAssets?.ToString("N2") },
+            { "Short-Term Investments", b => b.ShortTermInvestments?.ToString("N2") },
+            { "Net Receivables", b => b.NetReceivables?.ToString("N2") },
+            { "Long-Term Debt", b => b.LongTermDebt?.ToString("N2") },
+            { "Inventory", b => b.Inventory?.ToString("N2") },
+            { "Accounts Payable", b => b.AccountsPayable?.ToString("N2") },
+            { "Total Permanent Equity", b => b.TotalPermanentEquity?.ToString("N2") },
+            { "Additional Paid-in Capital", b => b.AdditionalPaCodeInCapital?.ToString("N2") },
+            { "Non-Current Assets Other", b => b.NonCurrrentAssetsOther?.ToString("N2") },
+            { "Non-Current Assets Total", b => b.NonCurrentAssetsTotal?.ToString("N2") },
+            { "Non-Current Liabilities Other", b => b.NonCurrentLiabilitiesOther?.ToString("N2") },
+            { "Non-Current Liabilities Total", b => b.NonCurrentLiabilitiesTotal?.ToString("N2") },
+            { "Negative Goodwill", b => b.NegativeGoodwill?.ToString("N2") },
+            { "Warrants", b => b.Warrants?.ToString("N2") },
+            { "Preferred Stock Redeemable", b => b.PreferredStockRedeemable?.ToString("N2") },
+            { "Capital Surplus", b => b.CapitalSurpluse?.ToString("N2") },
+            { "Liabilities and Stockholders' Equity", b => b.LiabilitiesAndStockholdersEquity?.ToString("N2") },
+            { "Cash and Short-Term Investments", b => b.CashAndShortTermInvestments?.ToString("N2") },
+            { "Accumulated Depreciation", b => b.AccumulatedDepreciation?.ToString("N2") },
+            { "Common Stock Shares Outstanding", b => b.CommonStockSharesOutstanding?.ToString("N2") }
+        };
+
+        var sortedBalanceSheetDates = BalanceSheetDates.OrderByDescending(date => date).Take(5).ToList();
+
+        foreach (var label in labels)
+        {
+            dynamic row = new ExpandoObject();
+            row.Label = label.Key;
+
+            for (int i = 0; i < sortedBalanceSheetDates.Count; i++)
+            {
+                var date = sortedBalanceSheetDates[i];
+                var balanceSheet = BalanceSheetReport.QuarterlyBalanceSheet.FirstOrDefault(b => b.Date?.ToString("yyyy-MM-dd") == date);
+                ((IDictionary<string, object>)row)[date] = balanceSheet != null ? label.Value(balanceSheet) : null;
+            }
+
+            BalanceSheetData.Add(row);
+        }
+    }
+
+    public class FormattedOutstandingShare
+    {
+        public string Year { get; set; }
+        public string Quarter { get; set; }
+        public string SharesMln { get; set; }
+    }
+
+    private string GetInvolvement(string activityName)
+    {
+        var involvement = EsgScores?.ActivitiesInvolvement?.FirstOrDefault(a => a.Activity == activityName)?.Involvement;
+        return involvement ?? "N/A";
+    }
+
+    private string GetChangeColor(decimal close, decimal previousClose)
+    {
+        return close < previousClose ? "red" : "green";
+    }
+    private string GetChangeSign(decimal changePercent)
+    {
+        return changePercent >= 0 ? "+" : "";
+    }
+    public void Dispose()
+    {
+        priceUpdateTimer?.Dispose();
+    }
+}

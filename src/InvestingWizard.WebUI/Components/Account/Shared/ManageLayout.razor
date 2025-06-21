@@ -1,0 +1,38 @@
+﻿@inherits LayoutComponentBase
+@layout AccountLayout
+
+<div class="container mt-5">
+    <h1 class="text-center">Manage your account</h1>
+    <div class="text-center">
+    </div>
+    <hr />
+    <div class="row">
+        <div class="col-md-3">
+            <ManageNavMenu />
+        </div>
+        <div class="col-md-9">
+            @Body
+        </div>
+    </div>
+</div>
+
+<style>
+    .container {
+        max-width: 1200px;
+        margin: auto;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    .nav-link {
+        color: #2d323e;
+        padding: 10px;
+    }
+
+    .nav-link.active {
+        background-color: #1c1f26;
+        color: white;
+    }
+</style>

@@ -1,0 +1,129 @@
+﻿@page "/Account/Manage/ResetAuthenticator"
+
+@using InvestingWizard.Application.Shared.Interfaces
+@using Microsoft.AspNetCore.Identity
+@using InvestingWizard.Identity.Data.Models
+
+@inject ILoggingService Logging
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IdentityUserAccessor UserAccessor
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Reset authenticator key</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm p-4 mt-3">
+            <div class="card-header text-center">
+                <h2>Reset authenticator key</h2>
+            </div>
+            <div class="card-body">
+                <StatusMessage />
+                <div class="alert alert-warning" role="alert">
+                    <p>
+                        <span class="glyphicon glyphicon-warning-sign"></span>
+                        <strong>If you reset your authenticator key your authenticator app will not work until you reconfigure it.</strong>
+                    </p>
+                    <p>
+                        This process disables 2FA until you verify your authenticator app.
+                        If you do not complete your authenticator app configuration you may lose access to your account.
+                    </p>
+                </div>
+                <div>
+                    <form @formname="reset-authenticator" @onsubmit="OnSubmitAsync" method="post">
+                        <AntiforgeryToken />
+                        <button class="btn btn-danger" type="submit">Reset authenticator key</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: none;
+        border-radius: 10px;
+    }
+
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: none;
+        padding: 20px 0;
+    }
+
+    .card-body {
+        padding: 20px 30px;
+    }
+
+    .btn-primary {
+        background-color: #2d323e;
+        border-color: #2d323e;
+        color: white;
+        margin-right: 5px;
+    }
+
+        .btn-primary:hover {
+            background-color: #1c1f26;
+            border-color: #1c1f26;
+        }
+
+    .form-control:focus {
+        border-color: #549DB8;
+        box-shadow: 0 0 0 0.2rem rgba(84, 157, 184, 0.25);
+    }
+
+    .form-check-input:focus {
+        border-color: #549DB8;
+        box-shadow: 0 0 0 0.2rem rgba(84, 157, 184, 0.25);
+    }
+
+    a:focus, a:hover {
+        color: #549DB8;
+    }
+
+    a:active {
+        color: #1c1f26;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+            border-color: #bd2130;
+        }
+
+    .btn {
+        border-radius: 5px;
+        font-size: 16px;
+    }
+
+    .me-2 {
+        margin-right: .5rem;
+    }
+</style>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private async Task OnSubmitAsync()
+    {
+        var user = await UserAccessor.GetRequiredUserAsync(HttpContext);
+        await UserManager.SetTwoFactorEnabledAsync(user, false);
+        await UserManager.ResetAuthenticatorKeyAsync(user);
+        var userId = await UserManager.GetUserIdAsync(user);
+        Logging.LogInformation("User with ID '{UserId}' has reset their authentication app key.", userId);
+
+        await SignInManager.RefreshSignInAsync(user);
+
+        RedirectManager.RedirectToWithStatus(
+            "Account/Manage/EnableAuthenticator",
+            "Your authenticator app key has been reset, you will need to configure your authenticator app using the new key.",
+            HttpContext);
+    }
+}

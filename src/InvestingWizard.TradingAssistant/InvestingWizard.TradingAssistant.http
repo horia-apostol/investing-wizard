@@ -1,0 +1,6 @@
+@InvestingWizard.TradingAssistant_HostAddress = http://localhost:5248
+
+GET {{InvestingWizard.TradingAssistant_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

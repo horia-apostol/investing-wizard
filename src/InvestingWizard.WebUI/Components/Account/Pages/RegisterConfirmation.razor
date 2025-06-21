@@ -1,0 +1,37 @@
+﻿@page "/Account/RegisterConfirmation"
+@using Microsoft.AspNetCore.Authorization
+
+@inject NavigationManager NavigationManager
+@attribute [AllowAnonymous]
+
+<PageTitle>Register confirmation</PageTitle>
+
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4 mx-auto">
+        <div class="card shadow-sm p-4">
+            <div class="card-header text-center">
+                <h2>Register confirmation</h2>
+            </div>
+            <div class="card-body text-center">
+                <p>Thank you for registering. Please check your email to confirm your account.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: none;
+        border-radius: 10px;
+    }
+
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: none;
+        padding: 20px 0;
+    }
+
+    .card-body {
+        padding: 20px 30px;
+    }
+</style>

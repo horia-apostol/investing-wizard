@@ -1,0 +1,234 @@
+﻿@inherits LayoutComponentBase
+@using InvestingWizard.Shared.Misc.Const
+@using Syncfusion.Blazor.Navigations
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@rendermode InteractiveServer
+
+<SfSidebar @ref="sidebarObj" Width="220px" DockSize="72px" EnableDock=true @bind-IsOpen="SidebarToggle" MediaQuery="(min-width: 600px)">
+    <ChildContent>
+        <div class="dock">
+            <div class="sidebar-header">
+                <button class="sidebar-toggle-button" @onclick="Toggle">
+                    <span class="fas fa-bars"></span>
+                </button>
+            </div>
+            <ul>
+                <AuthorizeView>
+                    <Authorized>
+                        @if (isAdmin)
+                        {
+                            <li class="sidebar-item">
+                                <button class="sidebar-button" @onclick="NavigateToAdminDashboard">
+                                    <span class="fas fa-tools"></span>
+                                    <span class="e-text" title="admin-dashboard">Admin Dashboard</span>
+                                </button>
+                            </li>
+                        }
+                        <li class="sidebar-item">
+                            <button class="sidebar-button" @onclick="NavigateToExchanges">
+                                <span class="fas fa-chart-line"></span>
+                                <span class="e-text" title="exchanges">Exchanges</span>
+                            </button>
+                        </li>
+                        <li class="sidebar-item">
+                            <button class="sidebar-button" @onclick="NavigateToPortfolios">
+                                <span class="fas fa-briefcase"></span>
+                                <span class="e-text" title="portfolios">Portfolios</span>
+                            </button>
+                        </li>
+                        <li class="sidebar-item">
+                            <button class="sidebar-button" @onclick="NavigateToWatchlists">
+                                <span class="fas fa-list"></span>
+                                <span class="e-text" title="watchlists">Watchlists</span>
+                            </button>
+                        </li>
+                        
+                        
+                        <li class="sidebar-item">
+                            <button class="sidebar-button" @onclick="NavigateToStockNewsBot">
+                                <span class="fas fa-robot"></span>
+                                <span class="e-text" title="market-analyst">Stock News Bot</span>
+                            </button>
+                        </li>
+                        <li class="sidebar-item">
+                            <button class="sidebar-button" @onclick="NavigateToProfile">
+                                <span class="fas fa-user"></span>
+                                <span class="e-text" title="profile">Profile</span>
+                            </button>
+                        </li>
+                        <li>
+                            <form action="Account/Logout" method="post">
+                                <AntiforgeryToken />
+                                <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                                <button type="submit" class="sidebar-button">
+                                    <span class="fas fa-sign-out-alt"></span>
+                                    <span class="e-text" title="logout">Logout</span>
+                                </button>
+                            </form>
+                        </li>
+                    </Authorized>
+                    <NotAuthorized>
+                        <li class="sidebar-item">
+                            <button class="sidebar-button" @onclick="NavigateToRegister">
+                                <span class="fas fa-user-plus"></span>
+                                <span class="e-text" title="register">Register</span>
+                            </button>
+                        </li>
+                        <li class="sidebar-item">
+                            <button class="sidebar-button" @onclick="NavigateToLogin">
+                                <span class="fas fa-sign-in-alt"></span>
+                                <span class="e-text" title="login">Login</span>
+                            </button>
+                        </li>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </ul>
+        </div>
+    </ChildContent>
+</SfSidebar>
+
+<div id="main-content container-fluid col-md-12" style="margin-top: 10%;">
+    <div class="title default" style="text-align: center">@Body</div>
+</div>
+
+<style>
+    body {
+        background-color: #f4f4fc;
+        margin: 0;
+    }
+
+    /* Content area styles */
+    .title {
+        font-size: 20px;
+    }
+
+    /* Sidebar styles */
+    .e-sidebar .fas {
+        font-size: 25px;
+    }
+
+    .e-sidebar li {
+        list-style-type: none;
+        cursor: pointer;
+    }
+
+    .e-sidebar ul {
+        padding: 0px;
+    }
+
+    .sidebar-header {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        background: #2d323e;
+        margin-bottom: 13px;
+    }
+
+    .e-sidebar .sidebar-toggle-button {
+        width: 36px;
+        height: 36px;
+        text-align: center;
+        border: none;
+        background: none;
+        color: #c0c2c5;
+        font-size: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 10px;
+        border-radius: 8px; /* Rounded corners */
+    }
+
+        .e-sidebar .sidebar-toggle-button:hover {
+            background-color: #3a3f4b;
+        }
+
+    .site-logo {
+        height: 36px;
+    }
+
+    .e-sidebar .sidebar-button {
+        width: 100%;
+        padding: 10px;
+        text-align: left;
+        border: none;
+        background: none;
+        color: #c0c2c5;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        border-bottom: 1px #e5e5e58a solid;
+        border-radius: 8px;
+    }
+
+        .e-sidebar .sidebar-button .fas {
+            margin-right: 10px;
+        }
+
+        .e-sidebar .sidebar-button:hover {
+            background-color: #3a3f4b;
+        }
+
+    .e-sidebar.e-dock.e-close span.e-text {
+        display: none;
+    }
+
+    .e-sidebar.e-dock.e-open span.e-text {
+        display: inline-block;
+    }
+
+    .e-sidebar {
+        background: #2d323e;
+        overflow: hidden;
+    }
+
+    .main > div {
+        padding: 0px !important;
+    }
+</style>
+
+@code {
+    SfSidebar sidebarObj;
+    public bool SidebarToggle = false;
+    private bool isAdmin = false;
+    private string? currentUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        isAdmin = user.IsInRole(Roles.Admin);
+
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+
+    public void Toggle()
+    {
+        SidebarToggle = !SidebarToggle;
+    }
+
+    private void NavigateToProfile() => NavigationManager.NavigateTo("Account/Manage");
+    private void NavigateToRegister() => NavigationManager.NavigateTo("Account/Register");
+    private void NavigateToLogin() => NavigationManager.NavigateTo("Account/Login");
+    private void NavigateToWatchlists() => NavigationManager.NavigateTo("/Watchlists");
+    private void NavigateToPortfolios() => NavigationManager.NavigateTo("/Portfolios");
+    private void NavigateToExchanges() => NavigationManager.NavigateTo("/");
+    private void NavigateToStockNewsBot() => NavigationManager.NavigateTo("/StockNewsBot");
+    private void NavigateToAdminDashboard() => NavigationManager.NavigateTo("/AdminDashboard");
+}

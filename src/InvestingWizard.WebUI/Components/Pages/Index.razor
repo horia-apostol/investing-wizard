@@ -1,0 +1,95 @@
+﻿@page "/"
+
+@rendermode InteractiveServer
+
+@using InvestingWizard.Application.Features.Exchanges.Queries.GetAllExchanges
+@using InvestingWizard.WebUI.Interfaces
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Cards
+@using Microsoft.AspNetCore.Components.Authorization
+@using InvestingWizard.Shared.Common
+@inject IExchangeDataService ExchangeDataService
+@inject NavigationManager Navigation
+
+<PageTitle>Exchanges</PageTitle>
+
+<div class="page-container">
+    <h3 class="page-title">Exchanges</h3>
+    <br />
+    <SfCard CssClass="exchanges-card">
+        <CardContent>
+            <SfGrid DataSource="@exchanges" AllowPaging="true" Height="200">
+                <GridColumns>
+                    <GridColumn Field="Name" HeaderText="Name" Width="200"></GridColumn>
+                    <GridColumn Field="Code" HeaderText="Code" Width="100"></GridColumn>
+                    <GridColumn Width="100" TextAlign="TextAlign.Right">
+                        <Template>
+                            @{
+                                var exchange = (ExchangeNameCodeResponseDto)context;
+                            }
+                            <SfButton CssClass="link-button" IconCss="fas fa-link" @onclick="(() => NavigateToExchange(exchange))">Link</SfButton>
+                        </Template>
+                    </GridColumn>
+                </GridColumns>
+            </SfGrid>
+        </CardContent>
+    </SfCard>
+</div>
+
+<style>
+    .page-container {
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .page-title {
+        color: #2d323e;
+        font-size: 2rem;
+        margin-bottom: 20px;
+    }
+
+    .exchanges-card {
+        width: 80%;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+    }
+
+    .link-button {
+        background-color: #2d323e;
+        color: white;
+        margin-right: 5px;
+    }
+</style>
+
+@code {
+    private List<ExchangeNameCodeResponseDto> exchanges { get; set; } = new List<ExchangeNameCodeResponseDto>();
+
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadExchanges();
+    }
+
+    private async Task LoadExchanges()
+    {
+        var result = await ExchangeDataService.GetAllExchangesAsync();
+        if (result.IsSuccess)
+        {
+            exchanges = result.Value ?? new List<ExchangeNameCodeResponseDto>();
+        }
+    }
+
+    private void NavigateToExchange(ExchangeNameCodeResponseDto exchange)
+    {
+        if (!string.IsNullOrEmpty(exchange.Code))
+        {
+            Navigation.NavigateTo($"/Exchange/{exchange.Code}");
+        }
+    }
+}
