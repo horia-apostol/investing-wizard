@@ -1,3 +1,9 @@
+<div align="center">
+  <img src="docs/logo.png" alt="App Architecture Diagram" width="250"/>
+</div>
+
+<div align="center"> <img src="https://img.shields.io/badge/.NET-8.0-blueviolet?logo=dotnet" alt=".NET 8" /> <img src="https://img.shields.io/badge/ASP.NET_Core-Backend-blue?logo=dotnet" alt="ASP.NET Core" /> <img src="https://img.shields.io/badge/Blazor-Server-purple?logo=blazor" alt="Blazor" /> <img src="https://img.shields.io/badge/CQRS-MediatR-orange?logo=csharp" alt="CQRS + MediatR" /> <img src="https://img.shields.io/badge/PostgreSQL-Database-336791?logo=postgresql&logoColor=white" alt="PostgreSQL" /> <img src="https://img.shields.io/badge/Entity%20Framework-Core-6DB33F?logo=.net" alt="EF Core" /> <img src="https://img.shields.io/badge/Quartz.NET-Scheduler-ff6600?logo=clockify" alt="Quartz.NET" /> <img src="https://img.shields.io/badge/AutoMapper-Object Mapping-red" alt="AutoMapper" /> <img src="https://img.shields.io/badge/Serilog-Logging-darkblue?logo=serilog" alt="Serilog" /> <img src="https://img.shields.io/badge/Syncfusion-UI Components-blue?logo=syncfusion" alt="Syncfusion" /> <img src="https://img.shields.io/badge/SendGrid-Email API-00b2ff?logo=sendgrid" alt="SendGrid" /> <img src="https://img.shields.io/badge/OpenAI-API-6e6ef4?logo=openai" alt="OpenAI API" /> <img src="https://img.shields.io/badge/AlphaVantage-Market News-green" alt="Alpha Vantage" /> <img src="https://img.shields.io/badge/EODHD-Market Data-yellow" alt="EODHD" /> </div>
+
 # Investing Wizard
 
 **Investing Wizard** is an intelligent financial platform designed to help investors consolidate, analyze, and optimize their portfolios.
@@ -62,9 +68,7 @@ Because the app already stores historical data for thousands of assets (via EODH
 
 ## Documentation & License
 
-This project originated as a bachelor’s thesis at "Alexandru Ioan Cuza" University in Iași.
+Originally developed as a BSc graduation project by **Apostol Horia-Andrei** in 2024,  
+this project originated as a bachelor’s thesis at *"Alexandru Ioan Cuza" University in Iași*.
 
 Download full academic PDF (in Romanian): [InvestingWizard.pdf](docs/InvestingWizard.pdf)
-
-Licensed under the MIT License — see [`LICENSE`](LICENSE).
-
